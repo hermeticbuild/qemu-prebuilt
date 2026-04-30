@@ -22,12 +22,12 @@ of preserving stale assumptions.
 - [x] Static Linux AIO and io_uring feasibility was tested on Alpine 3.23.4.
 - [x] Static `qemu-system-x86_64` feasibility was tested on Alpine 3.23.4.
 - [x] Linux system build scripts are implemented.
-- [x] macOS build scripts are implemented.
-- [ ] Windows build scripts are implemented.
+- [x] macOS builds were prototyped and then dropped because useful artifacts
+  require Homebrew runtime libraries.
+- [x] Windows was dropped because the supported QEMU build path is MinGW/MSYS2
+  and a reliable static-or-near-static artifact is not established.
 - [x] Release workflow publishes user, system, `qemu-img`, and system-data
   artifacts for Linux amd64 and arm64.
-- [x] Release workflow publishes system, `qemu-img`, and system-data artifacts
-  for macOS amd64 and arm64.
 
 ## Repository Direction
 
@@ -41,18 +41,16 @@ For a given upstream QEMU version, build and publish these artifact families:
 - `qemu-img`: image tooling needed by CI and build actions.
 - `qemu-system-data`: firmware and runtime data needed by `qemu-system-*`.
 
-Treat these as separate CI jobs. Sequential execution is acceptable, and is
-preferred for macOS and Windows until runner allocation and build duration are
-well understood. Linux may remain more parallel where it does not exhaust the
-runner quota.
+Treat these as separate CI jobs. Linux may remain parallel where it does not
+exhaust the runner quota. macOS is not an active release target.
 
 ## Release-Equivalent Workflow Testing
 
-Every platform should get a workflow test path before being wired into real
-release publishing. The test workflow must exercise the same build scripts,
-packaging scripts, artifact names, checksum generation, and validation commands
-that the release workflow will use. The release workflow should differ only by
-the final GitHub Release publication step.
+Every active platform should get a workflow test path before being wired into
+real release publishing. The test workflow must exercise the same build
+scripts, packaging scripts, artifact names, checksum generation, and validation
+commands that the release workflow will use. The release workflow should differ
+only by the final GitHub Release publication step.
 
 Preferred workflow structure:
 
@@ -72,8 +70,8 @@ Implementation order:
    for Linux `qemu-user`, `qemu-img`, `qemu-system`, and `qemu-system-data`.
 2. Once Linux validation produces release-shaped artifacts, wire Linux into the
    release workflow.
-3. Repeat the same validation-first pattern for macOS.
-4. Repeat the same validation-first pattern for Windows.
+3. Revisit Windows only if a static or near-static artifact can be produced
+   without requiring an MSYS2/QEMU package installation.
 
 Linux validation should start with a narrow matrix to keep turnaround practical:
 
@@ -85,7 +83,9 @@ Linux validation should start with a narrow matrix to keep turnaround practical:
 
 After that passes in GitHub Actions, expand to `linux-arm64`, then Tier 1 system
 targets, then the remaining user targets. Do not add macOS or Windows release
-publishing until their validation workflow proves release-shaped artifacts.
+publishing until their validation workflow proves release-shaped artifacts and
+the artifacts are meaningfully easier to consume than installing QEMU from the
+platform package manager.
 
 2026-04-30 implementation note: Linux build scripts now accept an artifact
 family (`user`, `img`, `system`, or `system-data`) and produce release-shaped
@@ -103,18 +103,15 @@ private `hermeticbuild` organization did not have the attestation feature
 available during validation. Keep validation focused on build, packaging,
 checksums, and smoke tests unless repository billing/visibility changes.
 
-2026-04-30 macOS implementation note: macOS builds use native GitHub-hosted
-macOS runners. The first validation matrix builds `qemu-img`, one host-native
-system target, and one system data archive for `darwin-amd64` and
-`darwin-arm64`. QEMU's global `--static` configure option was tested on the
-Intel macOS runner and is not viable because Darwin's linker adds `-static` and
-then fails looking for `crt0.o`. macOS artifacts therefore use normal Darwin
-dynamic linking. Homebrew runtime `.dylib` dependencies are treated as external
-prerequisites rather than bundled files. `libslirp` is installed with Homebrew
-and enabled for macOS `qemu-system` artifacts. The macOS smoke workflow installs
-the linked Homebrew runtime dependencies before executing the unbundled
-artifacts. System data remains a separate `share/qemu` archive and is passed
-explicitly with `-L` in smoke tests.
+2026-04-30 macOS implementation note: macOS builds were prototyped on native
+GitHub-hosted macOS runners for `darwin-amd64` and `darwin-arm64`. QEMU's
+global `--static` configure option was tested on the Intel macOS runner and is
+not viable because Darwin's linker adds `-static` and then fails looking for
+`crt0.o`. Dynamic macOS artifacts worked, including Homebrew `libslirp`, but
+the system binaries require Homebrew runtime libraries such as `glib`, `gnutls`,
+`libpng`, `libslirp`, `libusb`, `lzo`, `pixman`, and `zstd`. Since users would
+need Homebrew anyway, macOS release publishing and validation were removed for
+now.
 
 ## Verified Feasibility Notes
 
@@ -228,8 +225,8 @@ images, not a full desktop QEMU distribution.
 Keep enabled:
 
 - TCG on every platform.
-- Host acceleration where available: KVM on Linux, HVF on macOS, WHPX on
-  Windows.
+- Host acceleration where available: KVM on Linux. WHPX is only relevant if
+  Windows returns to scope.
 - Default devices.
 - Block layer and common local image formats.
 - `qemu-img`.
@@ -242,7 +239,7 @@ Prefer enabled when statically or portably packageable:
 
 - Linux AIO and io_uring on Linux.
 - User-mode networking via slirp.
-- TAP networking on Linux and macOS.
+- TAP networking on Linux.
 
 Disable for baseline headless artifacts:
 
@@ -329,12 +326,12 @@ Tasks:
 
 ### macOS
 
-Use native macOS runners, not Docker.
+Not active for release publishing.
 
 Matrix:
 
-- [x] `darwin-amd64` on an Intel-capable macOS runner if available.
-- [x] `darwin-arm64` on an Apple Silicon macOS runner if available.
+- [x] `darwin-amd64` was prototyped on an Intel-capable macOS runner.
+- [x] `darwin-arm64` was prototyped on an Apple Silicon macOS runner.
 
 Baseline:
 
@@ -349,16 +346,24 @@ Baseline:
 - [x] Use `otool -L` validation.
 - [x] Verify `qemu-system-aarch64 -accel hvf` exists on arm64 builds.
 - [x] Verify `qemu-system-x86_64 -accel hvf` exists on amd64 builds.
+- [x] Drop macOS from release and validation because unbundled artifacts require
+  Homebrew runtime dependencies, making `brew install qemu` a better user path.
 
 Open questions:
 
 - [x] Confirm GitHub-hosted runner availability for true Intel macOS builds.
-- [ ] Decide whether cross-compiling `darwin-amd64` from Apple Silicon is
-  acceptable for non-HVF smoke tests.
+- [x] Decide whether cross-compiling `darwin-amd64` from Apple Silicon is
+  acceptable for non-HVF smoke tests: no, because macOS is out of scope.
 
 ### Windows
 
-Use native Windows runners or an MSYS2/MinGW setup on Windows runners.
+Not active for release publishing. QEMU supports Windows builds through current
+MinGW, either cross-built from Linux or built via MSYS2 on Windows. That is a
+viable build path, but it is not the same as a proven static binary distribution
+path. MSYS2 packages are explicitly dependency-bearing packages that may include
+runtime libraries, shared libraries, static import libraries, headers, and
+metadata; publishing a QEMU ZIP with collected DLLs would be feasible, but it
+does not meet this repository's current static-or-near-static bar.
 
 Matrix:
 
@@ -367,22 +372,27 @@ Matrix:
 
 Baseline:
 
-- [ ] Reuse the same release-equivalent validation workflow pattern proven on
+- [x] Reuse the same release-equivalent validation workflow pattern proven on
   Linux before adding Windows release publishing.
-- [ ] Enable WHPX.
-- [ ] Keep TCG.
-- [ ] Build portable dynamic artifacts; do not promise fully static binaries.
-- [ ] Bundle required `.dll` dependencies beside `.exe` files.
+- [x] Enable WHPX only if Windows returns to scope.
+- [x] Keep TCG only if Windows returns to scope.
+- [x] Decide whether a static or near-static MinGW build is practical: not
+  established enough to publish now.
+- [x] Avoid publishing Windows if required dependencies must be installed
+  separately by users.
 - [ ] Use `dumpbin /DEPENDENTS` or an equivalent dependency validation tool.
-- [ ] Smoke-test `qemu-system-x86_64.exe -accel whpx` availability on amd64.
+- [ ] Smoke-test `qemu-system-x86_64.exe -accel whpx` availability on amd64
+  if Windows returns to scope.
 - [ ] Smoke-test `qemu-system-aarch64.exe -accel whpx` availability on arm64
   when the runner supports it.
 
 Open questions:
 
 - [ ] Confirm GitHub-hosted Windows arm64 runner availability and limitations.
-- [ ] Decide whether Windows artifacts should be `.zip` in addition to
-  `.tar.zst`.
+- [x] Decide whether Windows artifacts should be `.zip` in addition to
+  `.tar.zst`: no Windows artifacts for now.
+- [x] Decide whether static linking of QEMU's common deps works reliably with
+  the selected MSYS2/UCRT64 or LLVM-MinGW toolchain.
 
 ## Implementation Phases
 
@@ -426,8 +436,8 @@ Open questions:
 - [ ] Extend `.github/workflows/reusable-release.yml` to build artifact
   families as separate jobs: `qemu-user`, `qemu-img`, `qemu-system`, and
   `qemu-system-data`.
-- [ ] Use sequential dependencies between artifact-family jobs on macOS and
-  Windows to avoid saturating runner allocation.
+- [ ] Keep non-Linux release jobs out of the matrix until their artifacts are
+  worth publishing.
 - [ ] Upload and attest all artifact families.
 - [ ] Publish all artifacts and checksums to the GitHub release.
 - [ ] Add manual inputs to select artifact families for test runs.
@@ -437,19 +447,20 @@ Open questions:
 
 - [x] Add a native macOS build script.
 - [x] Add dependency installation strategy.
-- [ ] Add `.dylib` bundling or prefix packaging.
+- [x] Decide not to add `.dylib` bundling or prefix packaging.
 - [x] Add `otool -L` validation.
 - [x] Add HVF feature validation.
-- [x] Add macOS artifacts to release publishing.
+- [x] Remove macOS artifacts from release publishing.
 
 ### Phase 5: Windows Builds
 
-- [ ] Add a native Windows build script.
-- [ ] Add MSYS2/MinGW dependency installation.
-- [ ] Add `.dll` collection.
-- [ ] Add dependency validation.
-- [ ] Add WHPX feature validation.
-- [ ] Add Windows artifacts to release publishing.
+- [x] Decide whether `.dll` collection is acceptable; otherwise drop Windows:
+  drop Windows for now.
+- [x] Do not add Windows artifacts to release publishing.
+- [ ] Add a native Windows build script if Windows returns to scope.
+- [ ] Add MSYS2/MinGW dependency installation if Windows returns to scope.
+- [ ] Add dependency validation if Windows returns to scope.
+- [ ] Add WHPX feature validation if Windows returns to scope.
 
 ### Phase 6: Smoke Tests
 
@@ -464,14 +475,10 @@ Open questions:
 
 ## Data Archive Grouping Policy
 
-Start with one system-data archive per host OS and host architecture:
+Start with one system-data archive per active host OS and host architecture:
 
 - `qemu-system-data-linux-amd64-<version>.tar.zst`
 - `qemu-system-data-linux-arm64-<version>.tar.zst`
-- `qemu-system-data-darwin-amd64-<version>.tar.zst`
-- `qemu-system-data-darwin-arm64-<version>.tar.zst`
-- `qemu-system-data-windows-amd64-<version>.zip`
-- `qemu-system-data-windows-arm64-<version>.zip`
 
 Reason: configure results, path conventions, firmware descriptors, and installed
 auxiliary data can vary by host platform or feature set. Per-host data avoids
@@ -514,7 +521,12 @@ At the end of a session:
   `qemu-system-x86_64` when broad `bin/qemu-*` matching is used.
 - Confirmed Alpine 3.23.4 does not package static `libslirp.a`.
 - Added a source-built static libslirp path for Linux `qemu-system` artifacts
-  and enabled Homebrew `libslirp` for macOS `qemu-system` artifacts.
+  and prototyped Homebrew `libslirp` for macOS `qemu-system` artifacts.
+- Dropped macOS from release publishing and validation after confirming the
+  useful system artifacts require external Homebrew runtime libraries.
+- Dropped Windows from release publishing after confirming that the practical
+  route is MinGW/MSYS2 or collected DLLs, not a proven static-or-near-static
+  artifact.
 - Decided that Linux comes first and must get a release-equivalent validation
-  workflow before real release publishing. macOS and Windows should reuse that
-  validation-first pattern after Linux works.
+  workflow before real release publishing. Windows should only be revisited if
+  it can provide static or near-static artifacts.

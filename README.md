@@ -1,8 +1,7 @@
 # qemu-static
 
-This repository builds QEMU archives for GitHub releases. Linux artifacts are
-static where practical; macOS artifacts use normal Darwin dynamic linking and
-leave third-party `.dylib` dependencies as external prerequisites.
+This repository builds Linux QEMU archives for GitHub releases. Linux artifacts
+are static where practical.
 It is based on <https://codeberg.org/ziglang/qemu-static> at commit
 `96593b61f32eebf2e44d88fbfffdc83f5b622225`.
 
@@ -15,9 +14,9 @@ unsuitable.
 
 The Linux strategy is to use Alpine Linux to host a QEMU build and link
 statically to all possible libraries, including a source-built static libslirp
-for `qemu-system` user networking. The macOS strategy is to build natively on
-GitHub-hosted macOS runners and document any Homebrew runtime libraries as
-prerequisites instead of bundling them into the artifacts.
+for `qemu-system` user networking. macOS and Windows builds are intentionally
+out of scope until they can offer a materially better distribution story than
+the platform package managers.
 
 It is a non-goal to build QEMU with all features enabled.
 It is a non-goal to build older versions of QEMU.
@@ -25,7 +24,7 @@ It is a non-goal to build older versions of QEMU.
 ## Release workflow
 
 Pushing any tag starts `.github/workflows/release.yml`. The workflow builds
-Linux and macOS release artifacts:
+Linux release artifacts:
 
 - `qemu-user-linux-<host-arch>-<target>-<version>.tar.gz` and `.tar.zst`
   archives
@@ -33,11 +32,6 @@ Linux and macOS release artifacts:
 - `qemu-system-bin-linux-<host-arch>-x86_64-softmmu-<version>.tar.gz` and
   `.tar.zst` archives
 - `qemu-system-data-linux-<host-arch>-<version>.tar.gz` and `.tar.zst`
-  archives
-- `qemu-img-darwin-<host-arch>-<version>.tar.gz` and `.tar.zst` archives
-- `qemu-system-bin-darwin-<host-arch>-<system-target>-<version>.tar.gz` and
-  `.tar.zst` archives
-- `qemu-system-data-darwin-<host-arch>-<version>.tar.gz` and `.tar.zst`
   archives
 
 User-mode archives contain one prefixed executable named
@@ -57,15 +51,6 @@ validation workflow. It builds a narrow Linux amd64 matrix for QEMU 11.0.0 by de
 The smoke job runs `qemu-img`, starts `qemu-system-x86_64` with `-machine none`,
 checks that the `user` network backend is compiled in, and runs a static
 aarch64 program through the packaged `qemu-aarch64`.
-
-`.github/workflows/validate-macos.yml` validates native macOS artifacts before
-they are added to release publishing. It builds `qemu-img`, one host-native
-`qemu-system-*` binary, and one system data archive for `darwin-amd64` and
-`darwin-arm64`. macOS binary artifacts contain the QEMU binaries only; users
-must install linked Homebrew libraries with Homebrew. Current system artifacts
-link to `glib`, `gnutls`, `libpng`, `libslirp`, `libusb`, `lzo`, `pixman`, and
-`zstd`; `libslirp` provides `-netdev user`. System data remains a separate
-`share/qemu` archive and can be passed to QEMU with `-L`.
 
 The workflow can also be run manually with a `tag_name` input to retry release
 publication for an existing tag.
@@ -119,14 +104,6 @@ tools/build-qemu.sh amd64 11.0.0 user aarch64-linux-user
 tools/build-qemu.sh amd64 11.0.0 img
 tools/build-qemu.sh amd64 11.0.0 system x86_64-softmmu
 tools/smoke-test-linux-artifacts.sh out amd64
-```
-
-On macOS, build native artifacts with:
-
-```sh
-tools/build-qemu-macos.sh arm64 11.0.0 img
-tools/build-qemu-macos.sh arm64 11.0.0 system aarch64-softmmu
-tools/smoke-test-macos-artifacts.sh out arm64
 ```
 
 ## Run container, save ID, copy artifact(s)

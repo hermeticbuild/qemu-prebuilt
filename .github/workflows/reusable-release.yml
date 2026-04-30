@@ -73,11 +73,7 @@ jobs:
                 {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"},
                 {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"user","target_list":""},
                 {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"img","target_list":""},
-                {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"system","target_list":"x86_64-softmmu"},
-                {"os":"darwin","arch":"amd64","runner":"macos-15-intel","family":"img","target_list":""},
-                {"os":"darwin","arch":"amd64","runner":"macos-15-intel","family":"system","target_list":"x86_64-softmmu"},
-                {"os":"darwin","arch":"arm64","runner":"macos-15","family":"img","target_list":""},
-                {"os":"darwin","arch":"arm64","runner":"macos-15","family":"system","target_list":"aarch64-softmmu"}
+                {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"system","target_list":"x86_64-softmmu"}
               ]'
               ;;
             validation)
@@ -85,14 +81,6 @@ jobs:
                 {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":"aarch64-linux-user"},
                 {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
                 {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"}
-              ]'
-              ;;
-            validation-macos)
-              include='[
-                {"os":"darwin","arch":"amd64","runner":"macos-15-intel","family":"img","target_list":""},
-                {"os":"darwin","arch":"amd64","runner":"macos-15-intel","family":"system","target_list":"x86_64-softmmu"},
-                {"os":"darwin","arch":"arm64","runner":"macos-15","family":"img","target_list":""},
-                {"os":"darwin","arch":"arm64","runner":"macos-15","family":"system","target_list":"aarch64-softmmu"}
               ]'
               ;;
             *)
@@ -131,9 +119,6 @@ jobs:
           case "${{ matrix.os }}" in
             linux)
               tools/build-qemu.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}" "${{ matrix.family }}" "${{ matrix.target_list }}"
-              ;;
-            darwin)
-              tools/build-qemu-macos.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}" "${{ matrix.family }}" "${{ matrix.target_list }}"
               ;;
             *)
               echo "unsupported matrix os: ${{ matrix.os }}" >&2
