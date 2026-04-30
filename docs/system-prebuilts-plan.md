@@ -22,10 +22,12 @@ of preserving stale assumptions.
 - [x] Static Linux AIO and io_uring feasibility was tested on Alpine 3.23.4.
 - [x] Static `qemu-system-x86_64` feasibility was tested on Alpine 3.23.4.
 - [x] Linux system build scripts are implemented.
-- [ ] macOS build scripts are implemented.
+- [x] macOS build scripts are implemented.
 - [ ] Windows build scripts are implemented.
 - [x] Release workflow publishes user, system, `qemu-img`, and system-data
   artifacts for Linux amd64 and arm64.
+- [x] Release workflow publishes system, `qemu-img`, and system-data artifacts
+  for macOS amd64 and arm64.
 
 ## Repository Direction
 
@@ -100,6 +102,16 @@ through `qemu-aarch64`.
 private `hermeticbuild` organization did not have the attestation feature
 available during validation. Keep validation focused on build, packaging,
 checksums, and smoke tests unless repository billing/visibility changes.
+
+2026-04-30 macOS implementation note: macOS builds use native GitHub-hosted
+macOS runners. The first validation matrix builds `qemu-img`, one host-native
+system target, and one system data archive for `darwin-amd64` and
+`darwin-arm64`. QEMU's global `--static` configure option was tested on the
+Intel macOS runner and is not viable because Darwin's linker adds `-static` and
+then fails looking for `crt0.o`. macOS artifacts therefore use normal Darwin
+dynamic linking. Homebrew runtime `.dylib` dependencies are treated as external
+prerequisites rather than bundled files. System data remains a separate
+`share/qemu` archive and is passed explicitly with `-L` in smoke tests.
 
 ## Verified Feasibility Notes
 
@@ -316,24 +328,24 @@ Use native macOS runners, not Docker.
 
 Matrix:
 
-- [ ] `darwin-amd64` on an Intel-capable macOS runner if available.
-- [ ] `darwin-arm64` on an Apple Silicon macOS runner if available.
+- [x] `darwin-amd64` on an Intel-capable macOS runner if available.
+- [x] `darwin-arm64` on an Apple Silicon macOS runner if available.
 
 Baseline:
 
-- [ ] Reuse the same release-equivalent validation workflow pattern proven on
+- [x] Reuse the same release-equivalent validation workflow pattern proven on
   Linux before adding macOS release publishing.
-- [ ] Enable HVF.
-- [ ] Keep TCG.
-- [ ] Build portable dynamic artifacts; do not promise fully static binaries.
+- [x] Enable HVF.
+- [x] Keep TCG.
+- [x] Build portable dynamic artifacts; do not promise fully static binaries.
 - [ ] Bundle required `.dylib` dependencies or produce a self-contained prefix.
-- [ ] Use `otool -L` validation.
-- [ ] Verify `qemu-system-aarch64 -accel hvf` exists on arm64 builds.
-- [ ] Verify `qemu-system-x86_64 -accel hvf` exists on amd64 builds.
+- [x] Use `otool -L` validation.
+- [x] Verify `qemu-system-aarch64 -accel hvf` exists on arm64 builds.
+- [x] Verify `qemu-system-x86_64 -accel hvf` exists on amd64 builds.
 
 Open questions:
 
-- [ ] Confirm GitHub-hosted runner availability for true Intel macOS builds.
+- [x] Confirm GitHub-hosted runner availability for true Intel macOS builds.
 - [ ] Decide whether cross-compiling `darwin-amd64` from Apple Silicon is
   acceptable for non-HVF smoke tests.
 
@@ -416,12 +428,12 @@ Open questions:
 
 ### Phase 4: macOS Builds
 
-- [ ] Add a native macOS build script.
-- [ ] Add dependency installation strategy.
+- [x] Add a native macOS build script.
+- [x] Add dependency installation strategy.
 - [ ] Add `.dylib` bundling or prefix packaging.
-- [ ] Add `otool -L` validation.
-- [ ] Add HVF feature validation.
-- [ ] Add macOS artifacts to release publishing.
+- [x] Add `otool -L` validation.
+- [x] Add HVF feature validation.
+- [x] Add macOS artifacts to release publishing.
 
 ### Phase 5: Windows Builds
 

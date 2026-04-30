@@ -18,6 +18,7 @@ if [[ -z "${INSTALL_DIR}" || -z "${OUT_DIR}" || -z "${HOST_OS}" || -z "${EXEC_AR
 fi
 
 BIN_DIR="${INSTALL_DIR}/bin"
+TAR="${TAR:-tar}"
 
 mkdir -p "${OUT_DIR}"
 
@@ -28,8 +29,8 @@ make_archive() {
     local tar_gz="${OUT_DIR}/${artifact_basename}.tar.gz"
     local tar_zst="${OUT_DIR}/${artifact_basename}.tar.zst"
 
-    tar -czf "${tar_gz}" -C "${staging_dir}" .
-    tar --zstd -cf "${tar_zst}" -C "${staging_dir}" .
+    "${TAR}" -czf "${tar_gz}" -C "${staging_dir}" .
+    "${TAR}" --zstd -cf "${tar_zst}" -C "${staging_dir}" .
 
     gzip -t "${tar_gz}"
     zstd -q -t "${tar_zst}"
@@ -63,8 +64,8 @@ package_user() {
         cp "${qemu_binary}" "${staging_dir}/${artifact_binary}"
         chmod 0755 "${staging_dir}/${artifact_binary}"
         make_archive "${artifact_basename}" "${staging_dir}"
-        cmp "${qemu_binary}" <(tar -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./${artifact_binary}")
-        cmp "${qemu_binary}" <(tar -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./${artifact_binary}")
+        cmp "${qemu_binary}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./${artifact_binary}")
+        cmp "${qemu_binary}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./${artifact_binary}")
         rm -rf "${staging_dir}"
         artifact_count="$((artifact_count + 1))"
     done
@@ -89,8 +90,8 @@ package_img() {
     cp "${qemu_img}" "${staging_dir}/bin/qemu-img"
     chmod 0755 "${staging_dir}/bin/qemu-img"
     make_archive "${artifact_basename}" "${staging_dir}"
-    cmp "${qemu_img}" <(tar -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./bin/qemu-img")
-    cmp "${qemu_img}" <(tar -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./bin/qemu-img")
+    cmp "${qemu_img}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./bin/qemu-img")
+    cmp "${qemu_img}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./bin/qemu-img")
     rm -rf "${staging_dir}"
 }
 
@@ -115,8 +116,8 @@ package_system() {
         cp "${qemu_binary}" "${staging_dir}/bin/${binary_name}"
         chmod 0755 "${staging_dir}/bin/${binary_name}"
         make_archive "${artifact_basename}" "${staging_dir}"
-        cmp "${qemu_binary}" <(tar -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./bin/${binary_name}")
-        cmp "${qemu_binary}" <(tar -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./bin/${binary_name}")
+        cmp "${qemu_binary}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./bin/${binary_name}")
+        cmp "${qemu_binary}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./bin/${binary_name}")
         rm -rf "${staging_dir}"
         artifact_count="$((artifact_count + 1))"
     done
@@ -140,8 +141,8 @@ package_system_data() {
     mkdir -p "${staging_dir}/share"
     cp -a "${qemu_data}" "${staging_dir}/share/qemu"
     make_archive "${artifact_basename}" "${staging_dir}"
-    tar -tf "${OUT_DIR}/${artifact_basename}.tar.gz" > "${staging_dir}/tar-gz.list"
-    tar -tf "${OUT_DIR}/${artifact_basename}.tar.zst" > "${staging_dir}/tar-zst.list"
+    "${TAR}" -tf "${OUT_DIR}/${artifact_basename}.tar.gz" > "${staging_dir}/tar-gz.list"
+    "${TAR}" -tf "${OUT_DIR}/${artifact_basename}.tar.zst" > "${staging_dir}/tar-zst.list"
     grep -Eq '(^|/)share/qemu/' "${staging_dir}/tar-gz.list"
     grep -Eq '(^|/)share/qemu/' "${staging_dir}/tar-zst.list"
     rm -rf "${staging_dir}"

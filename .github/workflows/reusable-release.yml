@@ -49,7 +49,7 @@ on:
         type: boolean
 
 concurrency:
-  group: qemu-static-release-${{ inputs.release_tag || inputs.qemu_version }}
+  group: qemu-static-${{ github.workflow }}-${{ inputs.release_tag || inputs.qemu_version }}
   cancel-in-progress: false
 
 jobs:
@@ -68,19 +68,31 @@ jobs:
           case "${BUILD_SCOPE}" in
             release)
               include='[
-                {"arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":""},
-                {"arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
-                {"arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"},
-                {"arch":"arm64","runner":"ubuntu-24.04-arm","family":"user","target_list":""},
-                {"arch":"arm64","runner":"ubuntu-24.04-arm","family":"img","target_list":""},
-                {"arch":"arm64","runner":"ubuntu-24.04-arm","family":"system","target_list":"x86_64-softmmu"}
+                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":""},
+                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
+                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"},
+                {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"user","target_list":""},
+                {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"img","target_list":""},
+                {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"system","target_list":"x86_64-softmmu"},
+                {"os":"darwin","arch":"amd64","runner":"macos-15-intel","family":"img","target_list":""},
+                {"os":"darwin","arch":"amd64","runner":"macos-15-intel","family":"system","target_list":"x86_64-softmmu"},
+                {"os":"darwin","arch":"arm64","runner":"macos-15","family":"img","target_list":""},
+                {"os":"darwin","arch":"arm64","runner":"macos-15","family":"system","target_list":"aarch64-softmmu"}
               ]'
               ;;
             validation)
               include='[
-                {"arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":"aarch64-linux-user"},
-                {"arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
-                {"arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"}
+                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":"aarch64-linux-user"},
+                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
+                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"}
+              ]'
+              ;;
+            validation-macos)
+              include='[
+                {"os":"darwin","arch":"amd64","runner":"macos-15-intel","family":"img","target_list":""},
+                {"os":"darwin","arch":"amd64","runner":"macos-15-intel","family":"system","target_list":"x86_64-softmmu"},
+                {"os":"darwin","arch":"arm64","runner":"macos-15","family":"img","target_list":""},
+                {"os":"darwin","arch":"arm64","runner":"macos-15","family":"system","target_list":"aarch64-softmmu"}
               ]'
               ;;
             *)
@@ -93,9 +105,10 @@ jobs:
 
   build:
     needs: matrix
-    name: build-${{ matrix.family }}-${{ matrix.arch }}
+    name: build-${{ matrix.os }}-${{ matrix.family }}-${{ matrix.arch }}
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include: ${{ fromJSON(needs.matrix.outputs.include) }}
     runs-on: ${{ matrix.runner }}
@@ -114,12 +127,24 @@ jobs:
           QEMU_REF: ${{ inputs.qemu_ref }}
           QEMU_REPO: ${{ inputs.qemu_repo }}
           QEMU_VERSION: ${{ inputs.qemu_version }}
-        run: tools/build-qemu.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}" "${{ matrix.family }}" "${{ matrix.target_list }}"
+        run: |
+          case "${{ matrix.os }}" in
+            linux)
+              tools/build-qemu.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}" "${{ matrix.family }}" "${{ matrix.target_list }}"
+              ;;
+            darwin)
+              tools/build-qemu-macos.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}" "${{ matrix.family }}" "${{ matrix.target_list }}"
+              ;;
+            *)
+              echo "unsupported matrix os: ${{ matrix.os }}" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: qemu-${{ matrix.family }}-${{ inputs.qemu_version }}-${{ matrix.arch }}
+          name: qemu-${{ matrix.os }}-${{ matrix.family }}-${{ inputs.qemu_version }}-${{ matrix.arch }}
           path: |
             out/qemu-*
           if-no-files-found: error
@@ -143,7 +168,7 @@ jobs:
         if: ${{ inputs.attest }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: qemu-${{ matrix.family }}-${{ inputs.qemu_version }}-${{ matrix.arch }}.attestation
+          name: qemu-${{ matrix.os }}-${{ matrix.family }}-${{ inputs.qemu_version }}-${{ matrix.arch }}.attestation
           path: out/${{ steps.build.outputs.attestation_name }}
           if-no-files-found: error
 
