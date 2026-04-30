@@ -1,0 +1,5 @@
+.git
+.github
+out
+artifact
+*.cid

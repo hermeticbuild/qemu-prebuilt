@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+HOST_OS_RAW="$(uname -s)"
+HOST_ARCH_RAW="$(uname -m)"
+
+HOST_OS="${HOST_OS_RAW,,}"
+HOST_ARCH="${HOST_ARCH_RAW,,}"
+
+case "${HOST_ARCH}" in
+    x86_64 | amd64)
+        ARTIFACT_ARCH="amd64"
+        ;;
+    aarch64 | arm64)
+        ARTIFACT_ARCH="arm64"
+        ;;
+    *)
+        echo "unsupported host architecture: ${HOST_ARCH_RAW}" >&2
+        exit 1
+        ;;
+esac
+
+ARTIFACT_NAME="${ARTIFACT_NAME:-qemu}"
+ARTIFACT_BASE_VERSION="${QEMU_VERSION:-${ARTIFACT_BASE_VERSION:-11.0.0}}"
+ARTIFACT_BASE_VERSION="${ARTIFACT_BASE_VERSION#v}"
+ARTIFACT_SERIAL="${ARTIFACT_SERIAL:-}"
+
+ARTIFACT_VERSION="${ARTIFACT_BASE_VERSION}${ARTIFACT_SERIAL:+.${ARTIFACT_SERIAL}}"
+ARTIFACT_BASENAME="${ARTIFACT_NAME}-${HOST_OS}-${ARTIFACT_ARCH}-${ARTIFACT_VERSION}"
+
+QEMU_REPO="${QEMU_REPO:-https://gitlab.com/qemu-project/qemu.git}"
+QEMU_REF="${QEMU_REF:-${QEMU_REV:-v${ARTIFACT_BASE_VERSION}}}"
+QEMU_BASENAME="${ARTIFACT_NAME}-${ARTIFACT_VERSION}"
+
+WORKDIR() {
+    echo "workdir: $(pwd)"
+    mkdir -p "$1"
+    cd "$1"
+}
+
+RUN() {
+    echo "run: $*"
+    "$@"
+}
+
+WORKDIR /work/src
+RUN git init "${QEMU_BASENAME}"
+WORKDIR "/work/src/${QEMU_BASENAME}"
+RUN git remote add origin "${QEMU_REPO}"
+RUN git fetch --depth=1 origin "${QEMU_REF}"
+RUN git checkout --detach FETCH_HEAD
+
+WORKDIR "/work/out/${QEMU_BASENAME}"
+RUN "/work/src/${QEMU_BASENAME}/configure" \
+    --prefix="/work/dst/${ARTIFACT_BASENAME}" \
+    --disable-debug-info \
+    --disable-system \
+    --disable-werror \
+    --enable-linux-user \
+    --static
+
+RUN make "-j$(nproc)"
+RUN make "-j$(nproc)" install
+
+WORKDIR /work/artifact
+RUN /work/tools/package-qemu-artifacts.sh \
+    "/work/dst/${ARTIFACT_BASENAME}" \
+    /work/artifact \
+    "${HOST_OS}" \
+    "${ARTIFACT_ARCH}"

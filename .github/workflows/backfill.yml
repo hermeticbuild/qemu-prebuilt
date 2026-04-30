@@ -1,0 +1,88 @@
+name: backfill
+
+on:
+  workflow_dispatch:
+    inputs:
+      min_major:
+        description: "Minimum QEMU major version"
+        required: true
+        default: "1"
+        type: string
+      max_major:
+        description: "Maximum QEMU major version"
+        required: true
+        default: "10"
+        type: string
+      force_rebuild:
+        description: "Rebuild and re-upload even if a release already exists"
+        required: true
+        default: false
+        type: boolean
+      max_parallel:
+        description: "Maximum concurrent releases"
+        required: true
+        default: "1"
+        type: string
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      count: ${{ steps.discover.outputs.count }}
+      versions: ${{ steps.discover.outputs.versions }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Discover QEMU versions
+        id: discover
+        env:
+          FORCE_REBUILD: ${{ inputs.force_rebuild }}
+          GH_TOKEN: ${{ github.token }}
+          MAX_MAJOR: ${{ inputs.max_major }}
+          MIN_MAJOR: ${{ inputs.min_major }}
+        run: |
+          candidates="$(mktemp)"
+          existing="$(mktemp)"
+          selected="$(mktemp)"
+          trap 'rm -f "${candidates}" "${existing}" "${selected}"' EXIT
+
+          tools/list-qemu-versions.sh \
+            --min-major "${MIN_MAJOR}" \
+            --max-major "${MAX_MAJOR}" \
+            > "${candidates}"
+
+          gh release list --limit 1000 --json tagName --jq '.[].tagName' > "${existing}"
+
+          while IFS= read -r version; do
+            if [[ "${FORCE_REBUILD}" != "true" ]] && grep -Fxq "${version}" "${existing}"; then
+              continue
+            fi
+
+            printf '%s\n' "${version}" >> "${selected}"
+          done < "${candidates}"
+
+          versions_json="$(jq -R -s -c 'split("\n") | map(select(length > 0)) | map({qemu_version: ., release_tag: .})' < "${selected}")"
+          count="$(jq 'length' <<< "${versions_json}")"
+
+          echo "versions=${versions_json}" >> "${GITHUB_OUTPUT}"
+          echo "count=${count}" >> "${GITHUB_OUTPUT}"
+
+  release:
+    needs: discover
+    if: ${{ needs.discover.outputs.count != '0' }}
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ fromJSON(inputs.max_parallel) }}
+      matrix:
+        include: ${{ fromJSON(needs.discover.outputs.versions) }}
+    uses: ./.github/workflows/reusable-release.yml
+    permissions:
+      contents: write
+      attestations: write
+      artifact-metadata: write
+      id-token: write
+    with:
+      qemu_version: ${{ matrix.qemu_version }}
+      release_tag: ${{ matrix.release_tag }}

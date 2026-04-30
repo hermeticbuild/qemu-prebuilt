@@ -1,0 +1,41 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag to publish"
+        required: true
+        type: string
+      qemu_version:
+        description: "QEMU version to build; defaults to tag_name"
+        required: false
+        default: ""
+        type: string
+      qemu_ref:
+        description: "QEMU git ref to build; defaults to v<qemu_version>"
+        required: false
+        default: ""
+        type: string
+      qemu_repo:
+        description: "QEMU git repository"
+        required: false
+        default: "https://gitlab.com/qemu-project/qemu.git"
+        type: string
+
+jobs:
+  release:
+    uses: ./.github/workflows/reusable-release.yml
+    permissions:
+      contents: write
+      attestations: write
+      artifact-metadata: write
+      id-token: write
+    with:
+      qemu_version: ${{ github.event_name == 'workflow_dispatch' && (inputs.qemu_version != '' && inputs.qemu_version || inputs.tag_name) || github.ref_name }}
+      release_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
+      qemu_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_ref || '' }}
+      qemu_repo: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_repo || 'https://gitlab.com/qemu-project/qemu.git' }}
