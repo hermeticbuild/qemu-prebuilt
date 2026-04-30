@@ -450,12 +450,13 @@ artifacts are compatible with each data archive.
 
 At the start of a session:
 
-1. Read this file.
-2. Check `git status --short`.
-3. Identify the next unchecked phase item.
-4. Run or update the relevant build probe before changing CI.
-5. Keep packaging naming explicit; do not add broad `bin/qemu-*` loops.
-6. If new findings make this plan wrong, edit this plan before or alongside the
+1. Read `AGENT.md`.
+2. Read this file.
+3. Check `git status --short`.
+4. Identify the next unchecked phase item.
+5. Run or update the relevant build probe before changing CI.
+6. Keep packaging naming explicit; do not add broad `bin/qemu-*` loops.
+7. If new findings make this plan wrong, edit this plan before or alongside the
    implementation change.
 
 At the end of a session:
