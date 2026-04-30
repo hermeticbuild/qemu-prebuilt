@@ -62,8 +62,9 @@ aarch64 program through the packaged `qemu-aarch64`.
 they are added to release publishing. It builds `qemu-img`, one host-native
 `qemu-system-*` binary, and one system data archive for `darwin-amd64` and
 `darwin-arm64`. macOS binary artifacts contain the QEMU binaries only; users
-must install any linked Homebrew libraries, including `libslirp` for
-`qemu-system` user networking, with Homebrew. System data remains a separate
+must install linked Homebrew libraries with Homebrew. Current system artifacts
+link to `glib`, `gnutls`, `libpng`, `libslirp`, `libusb`, `lzo`, `pixman`, and
+`zstd`; `libslirp` provides `-netdev user`. System data remains a separate
 `share/qemu` archive and can be passed to QEMU with `-L`.
 
 The workflow can also be run manually with a `tag_name` input to retry release

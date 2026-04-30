@@ -78,7 +78,7 @@ install_deps() {
     fi
 
     local deps dep missing
-    deps=(glib gnu-tar libslirp ninja pkg-config pixman zstd)
+    deps=(glib gnu-tar gnutls libpng libslirp libusb lzo ninja pkg-config pixman zstd)
     missing=()
     for dep in "${deps[@]}"; do
         if ! brew list --versions "${dep}" >/dev/null 2>&1; then

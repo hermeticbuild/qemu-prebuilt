@@ -111,8 +111,10 @@ Intel macOS runner and is not viable because Darwin's linker adds `-static` and
 then fails looking for `crt0.o`. macOS artifacts therefore use normal Darwin
 dynamic linking. Homebrew runtime `.dylib` dependencies are treated as external
 prerequisites rather than bundled files. `libslirp` is installed with Homebrew
-and enabled for macOS `qemu-system` artifacts. System data remains a separate
-`share/qemu` archive and is passed explicitly with `-L` in smoke tests.
+and enabled for macOS `qemu-system` artifacts. The macOS smoke workflow installs
+the linked Homebrew runtime dependencies before executing the unbundled
+artifacts. System data remains a separate `share/qemu` archive and is passed
+explicitly with `-L` in smoke tests.
 
 ## Verified Feasibility Notes
 
