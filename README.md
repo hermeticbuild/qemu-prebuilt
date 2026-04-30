@@ -1,6 +1,6 @@
 # qemu-static
 
-This repository builds static Linux user-mode QEMU archives for GitHub releases.
+This repository builds static Linux QEMU archives for GitHub releases.
 It is based on <https://codeberg.org/ziglang/qemu-static> at commit
 `96593b61f32eebf2e44d88fbfffdc83f5b622225`.
 
@@ -15,22 +15,36 @@ The overall strategy is to use Alpine Linux to host a QEMU build and link
 statically to all possible libraries.
 
 It is a non-goal to build QEMU with all features enabled.
-It is a non-goal to build QEMU with system emulation enabled.
 It is a non-goal to build older versions of QEMU.
 
 ## Release workflow
 
 Pushing any tag starts `.github/workflows/release.yml`. The workflow builds:
 
-- `qemu-user-linux-amd64-<target>.tar.gz` and `.tar.zst` archives on `ubuntu-24.04`
-- `qemu-user-linux-arm64-<target>.tar.gz` and `.tar.zst` archives on `ubuntu-24.04-arm`
+- `qemu-user-linux-<host-arch>-<target>-<version>.tar.gz` and `.tar.zst`
+  archives
+- `qemu-img-linux-<host-arch>-<version>.tar.gz` and `.tar.zst` archives
+- `qemu-system-bin-linux-<host-arch>-x86_64-softmmu-<version>.tar.gz` and
+  `.tar.zst` archives
+- `qemu-system-data-linux-<host-arch>-<version>.tar.gz` and `.tar.zst`
+  archives
 
-Each per-target archive contains one prefixed executable named
-`qemu-user-<os>-<exec-arch>-<target-arch>`. Each build uploads every per-target
-archive and `.sha256` file as workflow artifacts, attests them with GitHub
-artifact attestations, and publishes the attestation bundle as a release asset.
-The final job creates or updates the GitHub release for the tag and uploads both
-architecture artifact sets, checksums, and attestation bundles.
+User-mode archives contain one prefixed executable named
+`qemu-user-<os>-<exec-arch>-<target-arch>`. `qemu-img` and system binary
+archives preserve QEMU's installed `bin/` layout, and the system data archive
+contains installed `share/qemu` runtime data. Each build uploads every archive
+and `.sha256` file as workflow artifacts, attests them with GitHub artifact
+attestations, and publishes the attestation bundle as a release asset. The final
+job creates or updates the GitHub release for the tag and uploads both
+architecture artifact sets and checksums. GitHub artifact attestations are
+optional because private repositories require organization support for that
+feature; manual release runs can enable them with `attest`.
+
+`.github/workflows/validate-linux.yml` is the release-equivalent validation
+workflow. It builds a narrow Linux amd64 matrix for QEMU 11.0.0 by default:
+`qemu-aarch64`, `qemu-img`, `qemu-system-x86_64`, and one system data archive.
+The smoke job runs `qemu-img`, starts `qemu-system-x86_64` with `-machine none`,
+and runs a static aarch64 program through the packaged `qemu-aarch64`.
 
 The workflow can also be run manually with a `tag_name` input to retry release
 publication for an existing tag.
@@ -75,6 +89,15 @@ Edit the following values in `build`:
 
 ```sh
 docker build --tag qemu .
+```
+
+To build one release-shaped artifact family locally:
+
+```sh
+tools/build-qemu.sh amd64 11.0.0 user aarch64-linux-user
+tools/build-qemu.sh amd64 11.0.0 img
+tools/build-qemu.sh amd64 11.0.0 system x86_64-softmmu
+tools/smoke-test-linux-artifacts.sh out amd64
 ```
 
 ## Run container, save ID, copy artifact(s)

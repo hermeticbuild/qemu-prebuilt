@@ -1,0 +1,61 @@
+name: validate-linux
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - "Dockerfile"
+      - "build"
+      - "tools/**"
+      - "docs/system-prebuilts-plan.md"
+      - "README.md"
+  workflow_dispatch:
+    inputs:
+      qemu_version:
+        description: "QEMU version to validate"
+        required: false
+        default: "11.0.0"
+        type: string
+      qemu_ref:
+        description: "QEMU git ref to build; defaults to v<qemu_version>"
+        required: false
+        default: ""
+        type: string
+      qemu_repo:
+        description: "QEMU git repository"
+        required: false
+        default: "https://gitlab.com/qemu-project/qemu.git"
+        type: string
+
+jobs:
+  build:
+    uses: ./.github/workflows/reusable-release.yml
+    permissions:
+      contents: write
+      attestations: write
+      id-token: write
+    with:
+      qemu_version: ${{ github.event.inputs.qemu_version || '11.0.0' }}
+      qemu_ref: ${{ github.event.inputs.qemu_ref || '' }}
+      qemu_repo: ${{ github.event.inputs.qemu_repo || 'https://gitlab.com/qemu-project/qemu.git' }}
+      build_scope: validation
+      publish: false
+      attest: false
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: qemu-*-${{ github.event.inputs.qemu_version || '11.0.0' }}-amd64
+          path: out
+          merge-multiple: true
+
+      - name: Smoke test Linux artifacts
+        run: tools/smoke-test-linux-artifacts.sh out amd64

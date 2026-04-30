@@ -25,6 +25,11 @@ on:
         required: false
         default: "https://gitlab.com/qemu-project/qemu.git"
         type: string
+      attest:
+        description: "Generate GitHub artifact attestations"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   release:
@@ -32,10 +37,12 @@ jobs:
     permissions:
       contents: write
       attestations: write
-      artifact-metadata: write
       id-token: write
     with:
       qemu_version: ${{ github.event_name == 'workflow_dispatch' && (inputs.qemu_version != '' && inputs.qemu_version || inputs.tag_name) || github.ref_name }}
       release_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
       qemu_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_ref || '' }}
       qemu_repo: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_repo || 'https://gitlab.com/qemu-project/qemu.git' }}
+      build_scope: release
+      publish: true
+      attest: ${{ github.event_name == 'workflow_dispatch' && inputs.attest || false }}

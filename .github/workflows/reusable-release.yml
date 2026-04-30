@@ -32,27 +32,76 @@ on:
         required: false
         default: ""
         type: string
+      build_scope:
+        description: "Artifact matrix to build: release or validation"
+        required: false
+        default: "release"
+        type: string
+      publish:
+        description: "Publish built artifacts to a GitHub Release"
+        required: false
+        default: true
+        type: boolean
+      attest:
+        description: "Generate GitHub artifact attestations"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: qemu-static-release-${{ inputs.release_tag || inputs.qemu_version }}
   cancel-in-progress: false
 
 jobs:
+  matrix:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      include: ${{ steps.matrix.outputs.include }}
+    steps:
+      - name: Select artifact matrix
+        id: matrix
+        env:
+          BUILD_SCOPE: ${{ inputs.build_scope }}
+        run: |
+          case "${BUILD_SCOPE}" in
+            release)
+              include='[
+                {"arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":""},
+                {"arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
+                {"arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"},
+                {"arch":"arm64","runner":"ubuntu-24.04-arm","family":"user","target_list":""},
+                {"arch":"arm64","runner":"ubuntu-24.04-arm","family":"img","target_list":""},
+                {"arch":"arm64","runner":"ubuntu-24.04-arm","family":"system","target_list":"x86_64-softmmu"}
+              ]'
+              ;;
+            validation)
+              include='[
+                {"arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":"aarch64-linux-user"},
+                {"arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
+                {"arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"}
+              ]'
+              ;;
+            *)
+              echo "unsupported build_scope: ${BUILD_SCOPE}" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "include=$(jq -c . <<< "${include}")" >> "${GITHUB_OUTPUT}"
+
   build:
-    name: build-${{ matrix.arch }}
+    needs: matrix
+    name: build-${{ matrix.family }}-${{ matrix.arch }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
+        include: ${{ fromJSON(needs.matrix.outputs.include) }}
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
       attestations: write
-      artifact-metadata: write
       id-token: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -65,38 +114,42 @@ jobs:
           QEMU_REF: ${{ inputs.qemu_ref }}
           QEMU_REPO: ${{ inputs.qemu_repo }}
           QEMU_VERSION: ${{ inputs.qemu_version }}
-        run: tools/build-qemu.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}"
+        run: tools/build-qemu.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}" "${{ matrix.family }}" "${{ matrix.target_list }}"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: qemu-static-${{ inputs.qemu_version }}-${{ matrix.arch }}
+          name: qemu-${{ matrix.family }}-${{ inputs.qemu_version }}-${{ matrix.arch }}
           path: |
-            out/qemu-user-linux-${{ matrix.arch }}-*
+            out/qemu-*
           if-no-files-found: error
 
       - name: Attest release artifact
+        if: ${{ inputs.attest }}
         id: attest
         uses: actions/attest@281a49d4cbb0a72c9575a50d18f6deb515a11deb # v4
         with:
           subject-path: |
-            out/qemu-user-linux-${{ matrix.arch }}-*
+            out/qemu-*
 
       - name: Normalize attestation bundle filename
+        if: ${{ inputs.attest }}
         run: |
           mv \
             "${{ steps.attest.outputs.bundle-path }}" \
             "out/${{ steps.build.outputs.attestation_name }}"
 
       - name: Upload attestation bundle artifact
+        if: ${{ inputs.attest }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: qemu-static-${{ inputs.qemu_version }}-${{ matrix.arch }}.attestation
+          name: qemu-${{ matrix.family }}-${{ inputs.qemu_version }}-${{ matrix.arch }}.attestation
           path: out/${{ steps.build.outputs.attestation_name }}
           if-no-files-found: error
 
   publish:
     needs: build
+    if: ${{ inputs.publish }}
     runs-on: ubuntu-24.04
     concurrency:
       group: qemu-static-release-publish
@@ -109,7 +162,7 @@ jobs:
       - name: Download workflow artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: qemu-static-${{ inputs.qemu_version }}-*
+          pattern: qemu-*-${{ inputs.qemu_version }}-*
           path: out
           merge-multiple: true
 

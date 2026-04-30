@@ -21,11 +21,11 @@ of preserving stale assumptions.
   11.0.0.
 - [x] Static Linux AIO and io_uring feasibility was tested on Alpine 3.23.4.
 - [x] Static `qemu-system-x86_64` feasibility was tested on Alpine 3.23.4.
-- [ ] Linux system build scripts are implemented.
+- [x] Linux system build scripts are implemented.
 - [ ] macOS build scripts are implemented.
 - [ ] Windows build scripts are implemented.
-- [ ] Release workflow publishes user, system, `qemu-img`, and system-data
-  artifacts.
+- [x] Release workflow publishes user, system, `qemu-img`, and system-data
+  artifacts for Linux amd64 and arm64.
 
 ## Repository Direction
 
@@ -77,13 +77,29 @@ Linux validation should start with a narrow matrix to keep turnaround practical:
 
 - `linux-amd64`.
 - `qemu-img`.
-- one user-mode target such as `x86_64`.
+- one user-mode target such as `aarch64`.
 - one system target, `x86_64-softmmu`.
 - one system-data archive from the same install prefix.
 
 After that passes in GitHub Actions, expand to `linux-arm64`, then Tier 1 system
 targets, then the remaining user targets. Do not add macOS or Windows release
 publishing until their validation workflow proves release-shaped artifacts.
+
+2026-04-30 implementation note: Linux build scripts now accept an artifact
+family (`user`, `img`, `system`, or `system-data`) and produce release-shaped
+archive names for QEMU 11.0.0. The release workflow builds those families for
+Linux amd64 and arm64, with `x86_64-softmmu` as the initial system target. The
+validation workflow builds Linux amd64 `qemu-aarch64`, `qemu-img`,
+`qemu-system-x86_64`, and system data artifacts. The system binary and system
+data archives are packaged from the same system build so `x86_64-softmmu` is
+not compiled twice for validation. The smoke test runs `qemu-img`, starts
+`qemu-system-x86_64` with `-machine none`, and runs a static aarch64 program
+through `qemu-aarch64`.
+
+2026-04-30 GitHub Actions note: artifact attestations are optional because the
+private `hermeticbuild` organization did not have the attestation feature
+available during validation. Keep validation focused on build, packaging,
+checksums, and smoke tests unless repository billing/visibility changes.
 
 ## Verified Feasibility Notes
 

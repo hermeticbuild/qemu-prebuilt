@@ -25,6 +25,8 @@ ARTIFACT_NAME="${ARTIFACT_NAME:-qemu}"
 ARTIFACT_BASE_VERSION="${QEMU_VERSION:-${ARTIFACT_BASE_VERSION:-11.0.0}}"
 ARTIFACT_BASE_VERSION="${ARTIFACT_BASE_VERSION#v}"
 ARTIFACT_SERIAL="${ARTIFACT_SERIAL:-}"
+ARTIFACT_FAMILY="${ARTIFACT_FAMILY:-user}"
+TARGET_LIST="${TARGET_LIST:-}"
 
 ARTIFACT_VERSION="${ARTIFACT_BASE_VERSION}${ARTIFACT_SERIAL:+.${ARTIFACT_SERIAL}}"
 ARTIFACT_BASENAME="${ARTIFACT_NAME}-${HOST_OS}-${ARTIFACT_ARCH}-${ARTIFACT_VERSION}"
@@ -51,14 +53,65 @@ RUN git remote add origin "${QEMU_REPO}"
 RUN git fetch --depth=1 origin "${QEMU_REF}"
 RUN git checkout --detach FETCH_HEAD
 
-WORKDIR "/work/out/${QEMU_BASENAME}"
-RUN "/work/src/${QEMU_BASENAME}/configure" \
-    --prefix="/work/dst/${ARTIFACT_BASENAME}" \
-    --disable-debug-info \
-    --disable-system \
-    --disable-werror \
-    --enable-linux-user \
+configure_args=(
+    --prefix="/work/dst/${ARTIFACT_BASENAME}"
+    --disable-debug-info
+    --disable-werror
+    --disable-guest-agent
+    --disable-docs
+    --disable-gtk
+    --disable-sdl
+    --disable-vnc
+    --disable-opengl
+    --disable-curses
+    --disable-spice
+    --disable-pa
+    --disable-jack
+    --disable-oss
+    --disable-alsa
+    --disable-brlapi
+    --disable-dbus-display
+    --disable-slirp
+    --enable-linux-aio
+    --enable-linux-io-uring
     --static
+)
+
+case "${ARTIFACT_FAMILY}" in
+    user)
+        configure_args+=(
+            --disable-system
+            --enable-linux-user
+            --disable-tools
+        )
+        ;;
+    img)
+        configure_args+=(
+            --disable-system
+            --disable-linux-user
+            --enable-tools
+        )
+        ;;
+    system | system-data)
+        configure_args+=(
+            --enable-system
+            --disable-linux-user
+            --disable-tools
+        )
+        TARGET_LIST="${TARGET_LIST:-x86_64-softmmu}"
+        ;;
+    *)
+        echo "unsupported artifact family: ${ARTIFACT_FAMILY}" >&2
+        exit 1
+        ;;
+esac
+
+if [[ -n "${TARGET_LIST}" ]]; then
+    configure_args+=("--target-list=${TARGET_LIST}")
+fi
+
+WORKDIR "/work/out/${QEMU_BASENAME}"
+RUN "/work/src/${QEMU_BASENAME}/configure" "${configure_args[@]}"
 
 RUN make "-j$(nproc)"
 RUN make "-j$(nproc)" install
@@ -68,4 +121,6 @@ RUN /work/tools/package-qemu-artifacts.sh \
     "/work/dst/${ARTIFACT_BASENAME}" \
     /work/artifact \
     "${HOST_OS}" \
-    "${ARTIFACT_ARCH}"
+    "${ARTIFACT_ARCH}" \
+    "${ARTIFACT_VERSION}" \
+    "${ARTIFACT_FAMILY}"
