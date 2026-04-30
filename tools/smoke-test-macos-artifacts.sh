@@ -81,7 +81,7 @@ smoke_qemu_img() {
 }
 
 smoke_qemu_system() {
-    local artifact data_artifact system_dir data_dir accel_help pidfile pid
+    local artifact data_artifact system_dir data_dir accel_help netdev_help pidfile pid
     artifact="$(find_one "qemu-system-bin-darwin-${ARCH}-${SYSTEM_TARGET}-*.tar.gz")"
     data_artifact="$(find_one "qemu-system-data-darwin-${ARCH}-*.tar.gz")"
     system_dir="${TMP_DIR}/qemu-system"
@@ -95,6 +95,8 @@ smoke_qemu_system() {
     accel_help="$("${system_dir}/bin/${SYSTEM_BINARY}" -accel help)"
     grep -q '^tcg$' <<< "${accel_help}"
     grep -q '^hvf$' <<< "${accel_help}"
+    netdev_help="$("${system_dir}/bin/${SYSTEM_BINARY}" -netdev help)"
+    grep -q 'user' <<< "${netdev_help}"
 
     "${system_dir}/bin/${SYSTEM_BINARY}" \
         -L "${data_dir}/share/qemu" \

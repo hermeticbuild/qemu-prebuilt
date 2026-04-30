@@ -14,7 +14,8 @@ sometimes with custom patches. For this reason, distro-based QEMU packages are
 unsuitable.
 
 The Linux strategy is to use Alpine Linux to host a QEMU build and link
-statically to all possible libraries. The macOS strategy is to build natively on
+statically to all possible libraries, including a source-built static libslirp
+for `qemu-system` user networking. The macOS strategy is to build natively on
 GitHub-hosted macOS runners and document any Homebrew runtime libraries as
 prerequisites instead of bundling them into the artifacts.
 
@@ -54,14 +55,16 @@ feature; manual release runs can enable them with `attest`.
 validation workflow. It builds a narrow Linux amd64 matrix for QEMU 11.0.0 by default:
 `qemu-aarch64`, `qemu-img`, `qemu-system-x86_64`, and one system data archive.
 The smoke job runs `qemu-img`, starts `qemu-system-x86_64` with `-machine none`,
-and runs a static aarch64 program through the packaged `qemu-aarch64`.
+checks that the `user` network backend is compiled in, and runs a static
+aarch64 program through the packaged `qemu-aarch64`.
 
 `.github/workflows/validate-macos.yml` validates native macOS artifacts before
 they are added to release publishing. It builds `qemu-img`, one host-native
 `qemu-system-*` binary, and one system data archive for `darwin-amd64` and
 `darwin-arm64`. macOS binary artifacts contain the QEMU binaries only; users
-must install any linked Homebrew libraries with Homebrew. System data remains a
-separate `share/qemu` archive and can be passed to QEMU with `-L`.
+must install any linked Homebrew libraries, including `libslirp` for
+`qemu-system` user networking, with Homebrew. System data remains a separate
+`share/qemu` archive and can be passed to QEMU with `-L`.
 
 The workflow can also be run manually with a `tag_name` input to retry release
 publication for an existing tag.

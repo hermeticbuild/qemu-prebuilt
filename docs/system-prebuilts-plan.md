@@ -110,7 +110,8 @@ system target, and one system data archive for `darwin-amd64` and
 Intel macOS runner and is not viable because Darwin's linker adds `-static` and
 then fails looking for `crt0.o`. macOS artifacts therefore use normal Darwin
 dynamic linking. Homebrew runtime `.dylib` dependencies are treated as external
-prerequisites rather than bundled files. System data remains a separate
+prerequisites rather than bundled files. `libslirp` is installed with Homebrew
+and enabled for macOS `qemu-system` artifacts. System data remains a separate
 `share/qemu` archive and is passed explicitly with `-L` in smoke tests.
 
 ## Verified Feasibility Notes
@@ -183,9 +184,11 @@ descriptors, DTBs, keymaps, option ROMs, and `trace-events-all`.
 ### Linux Static Slirp
 
 Alpine 3.23.4 has `libslirp-dev` but not a `libslirp-static` package. The
-package installs only shared libraries. If Linux artifacts must remain fully
-static and still support `-netdev user`, static libslirp needs a separate
-source build or vendored dependency build.
+package installs only shared libraries. The Linux `qemu-system` build now
+builds libslirp 4.9.1 from source with Meson's `--default-library=static`,
+installs it into `/work/deps/libslirp`, and puts that pkg-config directory ahead
+of QEMU configure. `qemu-img` and `qemu-user` keep slirp disabled because they do
+not need the user networking backend.
 
 ## Artifact Model
 
@@ -314,13 +317,13 @@ Tasks:
 - [ ] Start Linux workflow validation with a narrow matrix:
   `linux-amd64`, `qemu-img`, one user target, one system target, and
   `qemu-system-data`.
-- [ ] Add Linux package dependencies for `qemu-img` and system static builds:
+- [x] Add Linux package dependencies for `qemu-img` and system static builds:
   `libaio-dev`, `liburing-dev`, `bzip2-static`, `pixman-static`,
   `util-linux-static`.
-- [ ] Decide whether to build static libslirp from source.
-- [ ] Split build modes: `user`, `qemu-img`, `system`.
-- [ ] Add `SYSTEM_TARGET_LIST` handling.
-- [ ] Validate installed binaries with `file`, `ldd`, and `readelf -d`.
+- [x] Decide whether to build static libslirp from source.
+- [x] Split build modes: `user`, `qemu-img`, `system`.
+- [x] Add `SYSTEM_TARGET_LIST` handling.
+- [x] Validate installed binaries with `file`, `ldd`, and `readelf -d`.
 
 ### macOS
 
@@ -338,7 +341,9 @@ Baseline:
 - [x] Enable HVF.
 - [x] Keep TCG.
 - [x] Build portable dynamic artifacts; do not promise fully static binaries.
-- [ ] Bundle required `.dylib` dependencies or produce a self-contained prefix.
+- [x] Keep required `.dylib` dependencies external; do not bundle Homebrew
+  libraries.
+- [x] Enable slirp via Homebrew `libslirp` for system artifacts.
 - [x] Use `otool -L` validation.
 - [x] Verify `qemu-system-aarch64 -accel hvf` exists on arm64 builds.
 - [x] Verify `qemu-system-x86_64 -accel hvf` exists on amd64 builds.
@@ -506,6 +511,8 @@ At the end of a session:
 - Confirmed current packaging misclassifies `qemu-img` and
   `qemu-system-x86_64` when broad `bin/qemu-*` matching is used.
 - Confirmed Alpine 3.23.4 does not package static `libslirp.a`.
+- Added a source-built static libslirp path for Linux `qemu-system` artifacts
+  and enabled Homebrew `libslirp` for macOS `qemu-system` artifacts.
 - Decided that Linux comes first and must get a release-equivalent validation
   workflow before real release publishing. macOS and Windows should reuse that
   validation-first pattern after Linux works.

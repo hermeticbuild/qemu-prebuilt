@@ -78,7 +78,7 @@ install_deps() {
     fi
 
     local deps dep missing
-    deps=(glib gnu-tar ninja pkg-config pixman zstd)
+    deps=(glib gnu-tar libslirp ninja pkg-config pixman zstd)
     missing=()
     for dep in "${deps[@]}"; do
         if ! brew list --versions "${dep}" >/dev/null 2>&1; then
@@ -129,7 +129,6 @@ configure_args=(
     --disable-spice
     --disable-brlapi
     --disable-dbus-display
-    --disable-slirp
     --disable-curl
     --disable-cocoa
     --enable-hvf
@@ -154,6 +153,7 @@ case "${ARTIFACT_FAMILY}" in
             --disable-system
             --disable-user
             --enable-tools
+            --disable-slirp
         )
         ;;
     system | system-data)
@@ -161,6 +161,7 @@ case "${ARTIFACT_FAMILY}" in
             --enable-system
             --disable-user
             --disable-tools
+            --enable-slirp
         )
         TARGET_LIST="${TARGET_LIST:-${DEFAULT_SYSTEM_TARGET}}"
         ;;

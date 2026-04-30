@@ -43,13 +43,15 @@ smoke_qemu_img() {
 }
 
 smoke_qemu_system() {
-    local artifact system_dir pidfile pid
+    local artifact system_dir netdev_help pidfile pid
     artifact="$(find_one "qemu-system-bin-linux-${ARCH}-x86_64-softmmu-*.tar.gz")"
     system_dir="${TMP_DIR}/qemu-system"
     pidfile="${TMP_DIR}/qemu-system.pid"
 
     extract_artifact "${artifact}" "${system_dir}"
     "${system_dir}/bin/qemu-system-x86_64" --version
+    netdev_help="$("${system_dir}/bin/qemu-system-x86_64" -netdev help)"
+    grep -q 'user' <<< "${netdev_help}"
     timeout 10 "${system_dir}/bin/qemu-system-x86_64" \
         -machine none \
         -nodefaults \

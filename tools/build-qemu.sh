@@ -69,6 +69,8 @@ docker build \
     --build-arg "QEMU_REF=${QEMU_REF:-${QEMU_VERSION:+v${QEMU_VERSION#v}}}" \
     --build-arg "QEMU_VERSION=${QEMU_VERSION#v}" \
     --build-arg "TARGET_LIST=${TARGET_LIST}" \
+    --build-arg "LIBSLIRP_REPO=${LIBSLIRP_REPO:-https://gitlab.freedesktop.org/slirp/libslirp.git}" \
+    --build-arg "LIBSLIRP_REF=${LIBSLIRP_REF:-v4.9.1}" \
     --build-arg "ARTIFACT_SERIAL=${ARTIFACT_SERIAL:-}" \
     --tag "${IMAGE}" \
     "${ROOT_DIR}"
