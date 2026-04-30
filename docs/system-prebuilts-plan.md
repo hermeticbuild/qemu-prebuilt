@@ -10,6 +10,10 @@ Update this file at the end of each implementation pass. Change task checkboxes,
 append short dated notes, and keep decisions concrete enough that another Codex
 session can continue from here without re-discovering context.
 
+This plan is a living engineering document. If a build result, CI result, or
+platform finding contradicts this plan, update the plan in the same pass instead
+of preserving stale assumptions.
+
 ## Current Status
 
 - [x] Linux user-mode static build exists for `amd64` and `arm64`.
@@ -39,6 +43,47 @@ Treat these as separate CI jobs. Sequential execution is acceptable, and is
 preferred for macOS and Windows until runner allocation and build duration are
 well understood. Linux may remain more parallel where it does not exhaust the
 runner quota.
+
+## Release-Equivalent Workflow Testing
+
+Every platform should get a workflow test path before being wired into real
+release publishing. The test workflow must exercise the same build scripts,
+packaging scripts, artifact names, checksum generation, and validation commands
+that the release workflow will use. The release workflow should differ only by
+the final GitHub Release publication step.
+
+Preferred workflow structure:
+
+- A reusable artifact build workflow builds one artifact family for one host
+  platform and uploads the resulting artifacts.
+- A manual and pull-request validation workflow calls that reusable build
+  workflow with test inputs and validates produced archives.
+- The release workflow calls the same reusable build workflow, then downloads
+  those artifacts and publishes them.
+
+This avoids a separate "CI-only" build path that can pass while release still
+fails.
+
+Implementation order:
+
+1. Linux first: create the reusable build path and a manual validation workflow
+   for Linux `qemu-user`, `qemu-img`, `qemu-system`, and `qemu-system-data`.
+2. Once Linux validation produces release-shaped artifacts, wire Linux into the
+   release workflow.
+3. Repeat the same validation-first pattern for macOS.
+4. Repeat the same validation-first pattern for Windows.
+
+Linux validation should start with a narrow matrix to keep turnaround practical:
+
+- `linux-amd64`.
+- `qemu-img`.
+- one user-mode target such as `x86_64`.
+- one system target, `x86_64-softmmu`.
+- one system-data archive from the same install prefix.
+
+After that passes in GitHub Actions, expand to `linux-arm64`, then Tier 1 system
+targets, then the remaining user targets. Do not add macOS or Windows release
+publishing until their validation workflow proves release-shaped artifacts.
 
 ## Verified Feasibility Notes
 
@@ -236,6 +281,11 @@ Matrix:
 
 Tasks:
 
+- [ ] Add a Linux workflow validation entrypoint that calls the same reusable
+  artifact build jobs the release workflow will use.
+- [ ] Start Linux workflow validation with a narrow matrix:
+  `linux-amd64`, `qemu-img`, one user target, one system target, and
+  `qemu-system-data`.
 - [ ] Add Linux package dependencies for `qemu-img` and system static builds:
   `libaio-dev`, `liburing-dev`, `bzip2-static`, `pixman-static`,
   `util-linux-static`.
@@ -255,6 +305,8 @@ Matrix:
 
 Baseline:
 
+- [ ] Reuse the same release-equivalent validation workflow pattern proven on
+  Linux before adding macOS release publishing.
 - [ ] Enable HVF.
 - [ ] Keep TCG.
 - [ ] Build portable dynamic artifacts; do not promise fully static binaries.
@@ -280,6 +332,8 @@ Matrix:
 
 Baseline:
 
+- [ ] Reuse the same release-equivalent validation workflow pattern proven on
+  Linux before adding Windows release publishing.
 - [ ] Enable WHPX.
 - [ ] Keep TCG.
 - [ ] Build portable dynamic artifacts; do not promise fully static binaries.
@@ -296,6 +350,18 @@ Open questions:
   `.tar.zst`.
 
 ## Implementation Phases
+
+### Phase 0: Linux Release-Equivalent Workflow
+
+- [ ] Add a reusable artifact-family build workflow that can be called by both
+  validation and release workflows.
+- [ ] Add a manual Linux validation workflow that uses release-shaped artifact
+  names and archive contents.
+- [ ] Validate produced archives without creating or updating a GitHub Release.
+- [ ] Keep the final release publish job as the only meaningful difference
+  between validation and release.
+- [ ] Run the workflow on GitHub Actions and record the run URL and findings in
+  "Iteration Notes".
 
 ### Phase 1: Packaging Split
 
@@ -389,6 +455,8 @@ At the start of a session:
 3. Identify the next unchecked phase item.
 4. Run or update the relevant build probe before changing CI.
 5. Keep packaging naming explicit; do not add broad `bin/qemu-*` loops.
+6. If new findings make this plan wrong, edit this plan before or alongside the
+   implementation change.
 
 At the end of a session:
 
@@ -396,6 +464,7 @@ At the end of a session:
 2. Add a short note under "Iteration Notes".
 3. Record exact commands used for any new feasibility claim.
 4. Record any package/version/platform caveats.
+5. Record workflow run URLs for CI claims.
 
 ## Iteration Notes
 
@@ -408,3 +477,6 @@ At the end of a session:
 - Confirmed current packaging misclassifies `qemu-img` and
   `qemu-system-x86_64` when broad `bin/qemu-*` matching is used.
 - Confirmed Alpine 3.23.4 does not package static `libslirp.a`.
+- Decided that Linux comes first and must get a release-equivalent validation
+  workflow before real release publishing. macOS and Windows should reuse that
+  validation-first pattern after Linux works.
