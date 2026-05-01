@@ -31,18 +31,67 @@ on:
         default: "https://gitlab.com/qemu-project/qemu.git"
         type: string
 jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      artifact_serial: ${{ steps.prepare.outputs.artifact_serial }}
+      qemu_ref: ${{ steps.prepare.outputs.qemu_ref }}
+      qemu_repo: ${{ steps.prepare.outputs.qemu_repo }}
+      qemu_version: ${{ steps.prepare.outputs.qemu_version }}
+      release_tag: ${{ steps.prepare.outputs.release_tag }}
+    steps:
+      - name: Resolve release inputs
+        id: prepare
+        env:
+          ARTIFACT_SERIAL_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_serial || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          QEMU_REF_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_ref || '' }}
+          QEMU_REPO_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_repo || 'https://gitlab.com/qemu-project/qemu.git' }}
+          QEMU_VERSION_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_version || '' }}
+          REF_NAME: ${{ github.ref_name }}
+          TAG_NAME_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || '' }}
+        run: |
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            release_tag="${TAG_NAME_INPUT}"
+            qemu_version="${QEMU_VERSION_INPUT}"
+            artifact_serial="${ARTIFACT_SERIAL_INPUT}"
+          else
+            release_tag="${REF_NAME}"
+            qemu_version=""
+            artifact_serial=""
+          fi
+
+          if [[ -z "${qemu_version}" ]]; then
+            qemu_version="${release_tag}"
+            if [[ -z "${artifact_serial}" && "${release_tag}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              qemu_version="${release_tag%.*}"
+              artifact_serial="${release_tag##*.}"
+            fi
+          fi
+
+          {
+            echo "artifact_serial=${artifact_serial}"
+            echo "qemu_ref=${QEMU_REF_INPUT}"
+            echo "qemu_repo=${QEMU_REPO_INPUT}"
+            echo "qemu_version=${qemu_version}"
+            echo "release_tag=${release_tag}"
+          } >> "${GITHUB_OUTPUT}"
+
   release:
+    needs: prepare
     uses: ./.github/workflows/reusable-release.yml
     permissions:
       contents: write
       attestations: write
       id-token: write
     with:
-      qemu_version: ${{ github.event_name == 'workflow_dispatch' && (inputs.qemu_version != '' && inputs.qemu_version || inputs.tag_name) || github.ref_name }}
-      release_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
-      qemu_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_ref || '' }}
-      qemu_repo: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_repo || 'https://gitlab.com/qemu-project/qemu.git' }}
-      artifact_serial: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_serial || '' }}
+      qemu_version: ${{ needs.prepare.outputs.qemu_version }}
+      release_tag: ${{ needs.prepare.outputs.release_tag }}
+      qemu_ref: ${{ needs.prepare.outputs.qemu_ref }}
+      qemu_repo: ${{ needs.prepare.outputs.qemu_repo }}
+      artifact_serial: ${{ needs.prepare.outputs.artifact_serial }}
       build_scope: release
       publish: true
       attest: true
