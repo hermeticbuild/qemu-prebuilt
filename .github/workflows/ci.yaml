@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      qemu_version:
+        description: "QEMU version to build, without the leading v"
+        required: false
+        default: "11.0.0"
+        type: string
+      qemu_ref:
+        description: "QEMU git ref to build; defaults to v<qemu_version>"
+        required: false
+        default: ""
+        type: string
+      qemu_repo:
+        description: "QEMU git repository"
+        required: false
+        default: "https://gitlab.com/qemu-project/qemu.git"
+        type: string
+
+jobs:
+  build:
+    uses: ./.github/workflows/reusable-build.yml
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+    with:
+      qemu_version: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_version || '11.0.0' }}
+      qemu_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_ref || '' }}
+      qemu_repo: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_repo || 'https://gitlab.com/qemu-project/qemu.git' }}
+      attest: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
