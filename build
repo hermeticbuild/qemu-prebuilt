@@ -33,7 +33,7 @@ ARTIFACT_BASENAME="${ARTIFACT_NAME}-${HOST_OS}-${ARTIFACT_ARCH}-${ARTIFACT_VERSI
 QEMU_REPO="${QEMU_REPO:-https://gitlab.com/qemu-project/qemu.git}"
 QEMU_REF="${QEMU_REF:-${QEMU_REV:-v${ARTIFACT_BASE_VERSION}}}"
 QEMU_BASENAME="${ARTIFACT_NAME}-${ARTIFACT_VERSION}"
-LIBSLIRP_REPO="${LIBSLIRP_REPO:-https://gitlab.freedesktop.org/slirp/libslirp.git}"
+LIBSLIRP_REPO="${LIBSLIRP_REPO:-https://gitlab.com/qemu-project/libslirp.git}"
 LIBSLIRP_REF="${LIBSLIRP_REF:-v4.9.1}"
 LIBSLIRP_PREFIX="${LIBSLIRP_PREFIX:-/work/deps/libslirp}"
 
@@ -179,7 +179,7 @@ configure_args=(
     --disable-sdl
     --disable-vnc
     --disable-opengl
-    --disable-curses
+    --enable-curses
     --disable-spice
     --disable-pa
     --disable-jack
