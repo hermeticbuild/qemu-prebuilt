@@ -65,16 +65,18 @@ jobs:
         env:
           BUILD_SCOPE: ${{ inputs.build_scope }}
         run: |
+          USER_COMPATIBLE_SOFTMMU_TARGETS="aarch64-softmmu,alpha-softmmu,arm-softmmu,hppa-softmmu,i386-softmmu,loongarch64-softmmu,m68k-softmmu,microblaze-softmmu,mips-softmmu,mips64-softmmu,mips64el-softmmu,mipsel-softmmu,or1k-softmmu,ppc-softmmu,ppc64-softmmu,riscv32-softmmu,riscv64-softmmu,s390x-softmmu,sh4-softmmu,sh4eb-softmmu,sparc-softmmu,sparc64-softmmu,x86_64-softmmu,xtensa-softmmu,xtensaeb-softmmu"
+
           case "${BUILD_SCOPE}" in
             release)
-              include='[
-                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":""},
-                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
-                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"},
-                {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"user","target_list":""},
-                {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"img","target_list":""},
-                {"os":"linux","arch":"arm64","runner":"ubuntu-24.04-arm","family":"system","target_list":"x86_64-softmmu"}
-              ]'
+              include="[
+                {\"os\":\"linux\",\"arch\":\"amd64\",\"runner\":\"ubuntu-24.04\",\"family\":\"user\",\"target_list\":\"\"},
+                {\"os\":\"linux\",\"arch\":\"amd64\",\"runner\":\"ubuntu-24.04\",\"family\":\"img\",\"target_list\":\"\"},
+                {\"os\":\"linux\",\"arch\":\"amd64\",\"runner\":\"ubuntu-24.04\",\"family\":\"system\",\"target_list\":\"${USER_COMPATIBLE_SOFTMMU_TARGETS}\"},
+                {\"os\":\"linux\",\"arch\":\"arm64\",\"runner\":\"ubuntu-24.04-arm\",\"family\":\"user\",\"target_list\":\"\"},
+                {\"os\":\"linux\",\"arch\":\"arm64\",\"runner\":\"ubuntu-24.04-arm\",\"family\":\"img\",\"target_list\":\"\"},
+                {\"os\":\"linux\",\"arch\":\"arm64\",\"runner\":\"ubuntu-24.04-arm\",\"family\":\"system\",\"target_list\":\"${USER_COMPATIBLE_SOFTMMU_TARGETS}\"}
+              ]"
               ;;
             validation)
               include='[

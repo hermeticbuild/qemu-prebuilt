@@ -81,17 +81,20 @@ Linux validation should start with a narrow matrix to keep turnaround practical:
 - one system target, `x86_64-softmmu`.
 - one system-data archive from the same install prefix.
 
-After that passes in GitHub Actions, expand to `linux-arm64`, then Tier 1 system
-targets, then the remaining user targets. Do not add macOS or Windows release
-publishing until their validation workflow proves release-shaped artifacts and
-the artifacts are meaningfully easier to consume than installing QEMU from the
-platform package manager.
+Keep validation narrow, but make release artifacts broad. Release system builds
+should compile the QEMU `*-softmmu` targets that overlap with the linux-user
+guest target set so consumers can find both `qemu-user` and `qemu-system`
+artifacts for the same supported guest architecture. Do not add macOS or
+Windows release publishing until their validation workflow proves release-shaped
+artifacts and the artifacts are meaningfully easier to consume than installing
+QEMU from the platform package manager.
 
 2026-04-30 implementation note: Linux build scripts now accept an artifact
 family (`user`, `img`, `system`, or `system-data`) and produce release-shaped
 archive names for QEMU 11.0.0. The release workflow builds those families for
-Linux amd64 and arm64, with `x86_64-softmmu` as the initial system target. The
-validation workflow builds Linux amd64 `qemu-aarch64`, `qemu-img`,
+Linux amd64 and arm64. Release system builds compile the explicit softmmu target
+set that overlaps with QEMU's linux-user guest targets. The validation workflow
+stays narrow and builds Linux amd64 `qemu-aarch64`, `qemu-img`,
 `qemu-system-x86_64`, and system data artifacts. The system binary and system
 data archives are packaged from the same system build so `x86_64-softmmu` is
 not compiled twice for validation. The smoke test runs `qemu-img`, starts
@@ -259,43 +262,39 @@ Do not derive system targets by stripping `qemu-` from existing user-mode
 binaries. Query QEMU for supported system targets and maintain an explicit
 allowlist.
 
-### Tier 1 System Targets
+### Release System Targets
 
-These are the first targets to support because they are most useful for CI and
-cross-architecture build testing:
+These targets are configured in the release matrix because they overlap with
+QEMU 11.0.0 linux-user guest targets:
 
-- [ ] `aarch64-softmmu`
-- [ ] `arm-softmmu`
-- [ ] `i386-softmmu`
-- [x] `x86_64-softmmu` feasibility checked on Linux static
-- [ ] `riscv32-softmmu`
-- [ ] `riscv64-softmmu`
-- [ ] `ppc-softmmu`
-- [ ] `ppc64-softmmu`
-- [ ] `s390x-softmmu`
-- [ ] `mips-softmmu`
-- [ ] `mipsel-softmmu`
-- [ ] `mips64-softmmu`
-- [ ] `mips64el-softmmu`
-- [ ] `loongarch64-softmmu`
+- [x] `aarch64-softmmu`
+- [x] `alpha-softmmu`
+- [x] `arm-softmmu`
+- [x] `hppa-softmmu`
+- [x] `i386-softmmu`
+- [x] `loongarch64-softmmu`
+- [x] `m68k-softmmu`
+- [x] `microblaze-softmmu`
+- [x] `mips-softmmu`
+- [x] `mips64-softmmu`
+- [x] `mips64el-softmmu`
+- [x] `mipsel-softmmu`
+- [x] `or1k-softmmu`
+- [x] `ppc-softmmu`
+- [x] `ppc64-softmmu`
+- [x] `riscv32-softmmu`
+- [x] `riscv64-softmmu`
+- [x] `s390x-softmmu`
+- [x] `sh4-softmmu`
+- [x] `sh4eb-softmmu`
+- [x] `sparc-softmmu`
+- [x] `sparc64-softmmu`
+- [x] `x86_64-softmmu`
+- [x] `xtensa-softmmu`
+- [x] `xtensaeb-softmmu`
 
-### Tier 2 System Targets
-
-Add these after the Tier 1 matrix is stable:
-
-- [ ] `alpha-softmmu`
-- [ ] `hppa-softmmu`
-- [ ] `m68k-softmmu`
-- [ ] `microblaze-softmmu`
-- [ ] `microblazeel-softmmu`
-- [ ] `nios2-softmmu`
-- [ ] `or1k-softmmu`
-- [ ] `sh4-softmmu`
-- [ ] `sh4eb-softmmu`
-- [ ] `sparc-softmmu`
-- [ ] `sparc64-softmmu`
-- [ ] `xtensa-softmmu`
-- [ ] `xtensaeb-softmmu`
+Do not add system-only targets such as `avr-softmmu`, `rx-softmmu`, or
+`tricore-softmmu` unless the artifact policy changes.
 
 ## CI Matrix Plan
 
@@ -425,7 +424,8 @@ Open questions:
 - [ ] Add Linux static `qemu-img` build with AIO and io_uring enabled.
 - [ ] Ensure `qemu-img` is a separate build/release job from `qemu-user` and
   `qemu-system`.
-- [ ] Add Linux static system build for Tier 1 targets.
+- [x] Configure Linux release builds for the softmmu targets that overlap with
+  QEMU linux-user guest targets.
 - [ ] Add binary static validation.
 - [ ] Add `share/qemu` data packaging.
 - [ ] Keep existing user-mode release artifact names stable unless a deliberate

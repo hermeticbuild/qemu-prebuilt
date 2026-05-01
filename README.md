@@ -29,7 +29,7 @@ Linux release artifacts:
 - `qemu-user-linux-<host-arch>-<target>-<version>.tar.gz` and `.tar.zst`
   archives
 - `qemu-img-linux-<host-arch>-<version>.tar.gz` and `.tar.zst` archives
-- `qemu-system-bin-linux-<host-arch>-x86_64-softmmu-<version>.tar.gz` and
+- `qemu-system-bin-linux-<host-arch>-<system-target>-<version>.tar.gz` and
   `.tar.zst` archives
 - `qemu-system-data-linux-<host-arch>-<version>.tar.gz` and `.tar.zst`
   archives
@@ -50,7 +50,9 @@ validation workflow. It builds a narrow Linux amd64 matrix for QEMU 11.0.0 by de
 `qemu-aarch64`, `qemu-img`, `qemu-system-x86_64`, and one system data archive.
 The smoke job runs `qemu-img`, starts `qemu-system-x86_64` with `-machine none`,
 checks that the `user` network backend is compiled in, and runs a static
-aarch64 program through the packaged `qemu-aarch64`.
+aarch64 program through the packaged `qemu-aarch64`. Release builds keep the
+validation matrix narrow but compile the system target set that overlaps with
+the QEMU linux-user guest target set.
 
 The workflow can also be run manually with a `tag_name` input to retry release
 publication for an existing tag.
