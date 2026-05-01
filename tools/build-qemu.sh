@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    echo "usage: tools/build-qemu.sh <amd64|arm64> [qemu-version] [user|img|system|system-data] [target-list]" >&2
+    echo "usage: tools/build-qemu.sh <amd64|arm64> [qemu-version] [target-list]" >&2
 }
 
 ARCH="${1:-}"
@@ -11,12 +11,11 @@ if [[ -z "${ARCH}" ]]; then
     exit 1
 fi
 QEMU_VERSION="${2:-${QEMU_VERSION:-}}"
-ARTIFACT_FAMILY="${3:-${ARTIFACT_FAMILY:-user}}"
-TARGET_LIST="${4:-${TARGET_LIST:-}}"
+TARGET_LIST="${3:-${TARGET_LIST:-}}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${OUT_DIR:-${ROOT_DIR}/out}"
-IMAGE="qemu-static-${ARCH}-${ARTIFACT_FAMILY}:build"
-CONTAINER="qemu-static-${ARCH}-${ARTIFACT_FAMILY}-copy-$$"
+IMAGE="qemu-static-${ARCH}:build"
+CONTAINER="qemu-static-${ARCH}-copy-$$"
 
 case "${ARCH}" in
     amd64)
@@ -31,24 +30,12 @@ case "${ARCH}" in
         ;;
 esac
 
-case "${ARTIFACT_FAMILY}" in
-    user)
-        ARTIFACT_PREFIXES=("qemu-user-linux-${ARCH}-")
-        ;;
-    img)
-        ARTIFACT_PREFIXES=("qemu-img-linux-${ARCH}-")
-        ;;
-    system)
-        ARTIFACT_PREFIXES=("qemu-system-bin-linux-${ARCH}-" "qemu-system-data-linux-${ARCH}-")
-        ;;
-    system-data)
-        ARTIFACT_PREFIXES=("qemu-system-data-linux-${ARCH}-")
-        ;;
-    *)
-        echo "unsupported artifact family: ${ARTIFACT_FAMILY}" >&2
-        exit 1
-        ;;
-esac
+ARTIFACT_PREFIXES=(
+    "qemu-user-linux-${ARCH}-"
+    "qemu-img-linux-${ARCH}-"
+    "qemu-system-bin-linux-${ARCH}-"
+    "qemu-system-data-linux-${ARCH}-"
+)
 
 cleanup() {
     docker container rm "${CONTAINER}" >/dev/null 2>&1 || true
@@ -64,7 +51,6 @@ done
 docker build \
     --platform "${PLATFORM}" \
     --build-arg "ALPINE_VERSION=${ALPINE_VERSION:-3.23.4}" \
-    --build-arg "ARTIFACT_FAMILY=${ARTIFACT_FAMILY}" \
     --build-arg "QEMU_REPO=${QEMU_REPO:-https://gitlab.com/qemu-project/qemu.git}" \
     --build-arg "QEMU_REF=${QEMU_REF:-${QEMU_VERSION:+v${QEMU_VERSION#v}}}" \
     --build-arg "QEMU_VERSION=${QEMU_VERSION#v}" \
@@ -135,5 +121,5 @@ done
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     artifact_version="${QEMU_VERSION#v}${ARTIFACT_SERIAL:+.${ARTIFACT_SERIAL}}"
-    echo "attestation_name=qemu-${ARTIFACT_FAMILY}-linux-${ARCH}-${artifact_version}.attestation.jsonl" >> "${GITHUB_OUTPUT}"
+    echo "attestation_name=qemu-linux-${ARCH}-${artifact_version}.attestation.jsonl" >> "${GITHUB_OUTPUT}"
 fi

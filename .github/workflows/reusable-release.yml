@@ -48,39 +48,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  matrix:
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    outputs:
-      include: ${{ steps.matrix.outputs.include }}
-    steps:
-      - name: Select artifact matrix
-        id: matrix
-        run: |
-          USER_COMPATIBLE_SOFTMMU_TARGETS="aarch64-softmmu,alpha-softmmu,arm-softmmu,hppa-softmmu,i386-softmmu,loongarch64-softmmu,m68k-softmmu,microblaze-softmmu,mips-softmmu,mips64-softmmu,mips64el-softmmu,mipsel-softmmu,or1k-softmmu,ppc-softmmu,ppc64-softmmu,riscv32-softmmu,riscv64-softmmu,s390x-softmmu,sh4-softmmu,sh4eb-softmmu,sparc-softmmu,sparc64-softmmu,x86_64-softmmu,xtensa-softmmu,xtensaeb-softmmu"
-
-          include="$(
-            jq -c -n --arg system_targets "${USER_COMPATIBLE_SOFTMMU_TARGETS}" '[
-              {os: "linux", arch: "amd64", runner: "ubuntu-24.04", family: "user", target_list: ""},
-              {os: "linux", arch: "amd64", runner: "ubuntu-24.04", family: "img", target_list: ""},
-              {os: "linux", arch: "amd64", runner: "ubuntu-24.04", family: "system", target_list: $system_targets},
-              {os: "linux", arch: "arm64", runner: "ubuntu-24.04-arm", family: "user", target_list: ""},
-              {os: "linux", arch: "arm64", runner: "ubuntu-24.04-arm", family: "img", target_list: ""},
-              {os: "linux", arch: "arm64", runner: "ubuntu-24.04-arm", family: "system", target_list: $system_targets}
-            ]'
-          )"
-
-          echo "include=${include}" >> "${GITHUB_OUTPUT}"
-
   build:
-    needs: matrix
-    name: build-${{ matrix.os }}-${{ matrix.family }}-${{ matrix.arch }}
+    name: build-${{ matrix.os }}-${{ matrix.arch }}
     strategy:
       fail-fast: false
       max-parallel: 2
       matrix:
-        include: ${{ fromJSON(needs.matrix.outputs.include) }}
+        include:
+          - os: linux
+            arch: amd64
+            runner: ubuntu-24.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -100,7 +80,7 @@ jobs:
         run: |
           case "${{ matrix.os }}" in
             linux)
-              tools/build-qemu.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}" "${{ matrix.family }}" "${{ matrix.target_list }}"
+              tools/build-qemu.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}"
               ;;
             *)
               echo "unsupported matrix os: ${{ matrix.os }}" >&2
@@ -111,7 +91,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: qemu-${{ matrix.os }}-${{ matrix.family }}-${{ inputs.qemu_version }}-${{ matrix.arch }}
+          name: qemu-${{ matrix.os }}-${{ inputs.qemu_version }}-${{ matrix.arch }}
           path: |
             out/qemu-*
           if-no-files-found: error
@@ -135,7 +115,7 @@ jobs:
         if: ${{ inputs.attest }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: qemu-${{ matrix.os }}-${{ matrix.family }}-${{ inputs.qemu_version }}-${{ matrix.arch }}.attestation
+          name: qemu-${{ matrix.os }}-${{ inputs.qemu_version }}-${{ matrix.arch }}.attestation
           path: out/${{ steps.build.outputs.attestation_name }}
           if-no-files-found: error
 

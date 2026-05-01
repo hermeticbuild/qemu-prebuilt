@@ -25,7 +25,6 @@ ARTIFACT_NAME="${ARTIFACT_NAME:-qemu}"
 ARTIFACT_BASE_VERSION="${QEMU_VERSION:-${ARTIFACT_BASE_VERSION:-11.0.0}}"
 ARTIFACT_BASE_VERSION="${ARTIFACT_BASE_VERSION#v}"
 ARTIFACT_SERIAL="${ARTIFACT_SERIAL:-}"
-ARTIFACT_FAMILY="${ARTIFACT_FAMILY:-user}"
 TARGET_LIST="${TARGET_LIST:-}"
 
 ARTIFACT_VERSION="${ARTIFACT_BASE_VERSION}${ARTIFACT_SERIAL:+.${ARTIFACT_SERIAL}}"
@@ -37,6 +36,72 @@ QEMU_BASENAME="${ARTIFACT_NAME}-${ARTIFACT_VERSION}"
 LIBSLIRP_REPO="${LIBSLIRP_REPO:-https://gitlab.freedesktop.org/slirp/libslirp.git}"
 LIBSLIRP_REF="${LIBSLIRP_REF:-v4.9.1}"
 LIBSLIRP_PREFIX="${LIBSLIRP_PREFIX:-/work/deps/libslirp}"
+
+if [[ -z "${TARGET_LIST}" ]]; then
+    linux_user_targets=(
+        aarch64-linux-user
+        aarch64_be-linux-user
+        alpha-linux-user
+        arm-linux-user
+        armeb-linux-user
+        hexagon-linux-user
+        hppa-linux-user
+        i386-linux-user
+        loongarch64-linux-user
+        m68k-linux-user
+        microblaze-linux-user
+        microblazeel-linux-user
+        mips-linux-user
+        mips64-linux-user
+        mips64el-linux-user
+        mipsel-linux-user
+        mipsn32-linux-user
+        mipsn32el-linux-user
+        or1k-linux-user
+        ppc-linux-user
+        ppc64-linux-user
+        ppc64le-linux-user
+        riscv32-linux-user
+        riscv64-linux-user
+        s390x-linux-user
+        sh4-linux-user
+        sh4eb-linux-user
+        sparc-linux-user
+        sparc32plus-linux-user
+        sparc64-linux-user
+        x86_64-linux-user
+        xtensa-linux-user
+        xtensaeb-linux-user
+    )
+    softmmu_targets=(
+        aarch64-softmmu
+        alpha-softmmu
+        arm-softmmu
+        hppa-softmmu
+        i386-softmmu
+        loongarch64-softmmu
+        m68k-softmmu
+        microblaze-softmmu
+        mips-softmmu
+        mips64-softmmu
+        mips64el-softmmu
+        mipsel-softmmu
+        or1k-softmmu
+        ppc-softmmu
+        ppc64-softmmu
+        riscv32-softmmu
+        riscv64-softmmu
+        s390x-softmmu
+        sh4-softmmu
+        sh4eb-softmmu
+        sparc-softmmu
+        sparc64-softmmu
+        x86_64-softmmu
+        xtensa-softmmu
+        xtensaeb-softmmu
+    )
+    TARGET_LIST="$(IFS=,; echo "${linux_user_targets[*]},${softmmu_targets[*]}")"
+fi
 
 WORKDIR() {
     echo "workdir: $(pwd)"
@@ -103,41 +168,14 @@ configure_args=(
     --disable-dbus-display
     --enable-linux-aio
     --enable-linux-io-uring
+    --enable-system
+    --enable-linux-user
+    --enable-tools
+    --enable-slirp
     --static
 )
 
-case "${ARTIFACT_FAMILY}" in
-    user)
-        configure_args+=(
-            --disable-system
-            --enable-linux-user
-            --disable-tools
-            --disable-slirp
-        )
-        ;;
-    img)
-        configure_args+=(
-            --disable-system
-            --disable-linux-user
-            --enable-tools
-            --disable-slirp
-        )
-        ;;
-    system | system-data)
-        build_libslirp_static
-        configure_args+=(
-            --enable-system
-            --disable-linux-user
-            --disable-tools
-            --enable-slirp
-        )
-        TARGET_LIST="${TARGET_LIST:-x86_64-softmmu}"
-        ;;
-    *)
-        echo "unsupported artifact family: ${ARTIFACT_FAMILY}" >&2
-        exit 1
-        ;;
-esac
+build_libslirp_static
 
 if [[ -n "${TARGET_LIST}" ]]; then
     configure_args+=("--target-list=${TARGET_LIST}")
@@ -155,5 +193,4 @@ RUN /work/tools/package-qemu-artifacts.sh \
     /work/artifact \
     "${HOST_OS}" \
     "${ARTIFACT_ARCH}" \
-    "${ARTIFACT_VERSION}" \
-    "${ARTIFACT_FAMILY}"
+    "${ARTIFACT_VERSION}"

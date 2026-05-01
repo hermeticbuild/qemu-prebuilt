@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    echo "usage: tools/package-qemu-artifacts.sh <install-dir> <out-dir> <os> <exec-arch> <version> <user|img|system|system-data>" >&2
+    echo "usage: tools/package-qemu-artifacts.sh <install-dir> <out-dir> <os> <exec-arch> <version>" >&2
 }
 
 INSTALL_DIR="${1:-}"
@@ -10,9 +10,8 @@ OUT_DIR="${2:-}"
 HOST_OS="${3:-}"
 EXEC_ARCH="${4:-}"
 ARTIFACT_VERSION="${5:-}"
-ARTIFACT_FAMILY="${6:-}"
 
-if [[ -z "${INSTALL_DIR}" || -z "${OUT_DIR}" || -z "${HOST_OS}" || -z "${EXEC_ARCH}" || -z "${ARTIFACT_VERSION}" || -z "${ARTIFACT_FAMILY}" ]]; then
+if [[ -z "${INSTALL_DIR}" || -z "${OUT_DIR}" || -z "${HOST_OS}" || -z "${EXEC_ARCH}" || -z "${ARTIFACT_VERSION}" ]]; then
     usage
     exit 1
 fi
@@ -51,7 +50,7 @@ package_user() {
         local binary_name target_arch artifact_binary artifact_basename staging_dir
         binary_name="$(basename "${qemu_binary}")"
         case "${binary_name}" in
-            qemu-img | qemu-system-*)
+            qemu-edid | qemu-ga | qemu-img | qemu-io | qemu-keymap | qemu-nbd | qemu-pr-helper | qemu-storage-daemon | qemu-system-* | qemu-vmsr-helper)
                 continue
                 ;;
         esac
@@ -148,22 +147,7 @@ package_system_data() {
     rm -rf "${staging_dir}"
 }
 
-case "${ARTIFACT_FAMILY}" in
-    user)
-        package_user
-        ;;
-    img)
-        package_img
-        ;;
-    system)
-        package_system
-        package_system_data
-        ;;
-    system-data)
-        package_system_data
-        ;;
-    *)
-        echo "unsupported artifact family: ${ARTIFACT_FAMILY}" >&2
-        exit 1
-        ;;
-esac
+package_user
+package_img
+package_system
+package_system_data

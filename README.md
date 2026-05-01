@@ -24,7 +24,7 @@ It is a non-goal to build older versions of QEMU.
 ## Release workflow
 
 Pushing any tag starts `.github/workflows/release.yml`. The workflow builds
-Linux release artifacts:
+Linux release artifacts with one QEMU build per host architecture:
 
 - `qemu-user-linux-<host-arch>-<target>-<version>.tar.gz` and `.tar.zst`
   archives
@@ -90,12 +90,10 @@ Edit the following values in `build`:
 docker build --tag qemu .
 ```
 
-To build one release-shaped artifact family locally:
+To build one release-shaped artifact set locally:
 
 ```sh
-tools/build-qemu.sh amd64 11.0.0 user aarch64-linux-user
-tools/build-qemu.sh amd64 11.0.0 img
-tools/build-qemu.sh amd64 11.0.0 system x86_64-softmmu
+tools/build-qemu.sh amd64 11.0.0
 ```
 
 ## Run container, save ID, copy artifact(s)
