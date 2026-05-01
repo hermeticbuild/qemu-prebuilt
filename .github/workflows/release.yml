@@ -92,6 +92,5 @@ jobs:
       qemu_ref: ${{ needs.prepare.outputs.qemu_ref }}
       qemu_repo: ${{ needs.prepare.outputs.qemu_repo }}
       artifact_serial: ${{ needs.prepare.outputs.artifact_serial }}
-      build_scope: release
       publish: true
       attest: true

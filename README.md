@@ -43,15 +43,6 @@ attestations, and publishes the attestation bundle as a release asset. The final
 job creates or updates the GitHub release for the tag and uploads both
 architecture artifact sets, checksums, and attestation bundles.
 
-`.github/workflows/validate-linux.yml` is the Linux release-equivalent
-validation workflow. It builds a narrow Linux amd64 matrix for QEMU 11.0.0 by default:
-`qemu-aarch64`, `qemu-img`, `qemu-system-x86_64`, and one system data archive.
-The smoke job runs `qemu-img`, starts `qemu-system-x86_64` with `-machine none`,
-checks that the `user` network backend is compiled in, and runs a static
-aarch64 program through the packaged `qemu-aarch64`. Release builds keep the
-validation matrix narrow but compile the system target set that overlaps with
-the QEMU linux-user guest target set.
-
 The workflow can also be run manually with a `tag_name` input to retry release
 publication for an existing tag.
 
@@ -105,7 +96,6 @@ To build one release-shaped artifact family locally:
 tools/build-qemu.sh amd64 11.0.0 user aarch64-linux-user
 tools/build-qemu.sh amd64 11.0.0 img
 tools/build-qemu.sh amd64 11.0.0 system x86_64-softmmu
-tools/smoke-test-linux-artifacts.sh out amd64
 ```
 
 ## Run container, save ID, copy artifact(s)

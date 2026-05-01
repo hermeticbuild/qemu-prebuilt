@@ -32,11 +32,6 @@ on:
         required: false
         default: ""
         type: string
-      build_scope:
-        description: "Artifact matrix to build: release or validation"
-        required: false
-        default: "release"
-        type: string
       publish:
         description: "Publish built artifacts to a GitHub Release"
         required: false
@@ -62,36 +57,21 @@ jobs:
     steps:
       - name: Select artifact matrix
         id: matrix
-        env:
-          BUILD_SCOPE: ${{ inputs.build_scope }}
         run: |
           USER_COMPATIBLE_SOFTMMU_TARGETS="aarch64-softmmu,alpha-softmmu,arm-softmmu,hppa-softmmu,i386-softmmu,loongarch64-softmmu,m68k-softmmu,microblaze-softmmu,mips-softmmu,mips64-softmmu,mips64el-softmmu,mipsel-softmmu,or1k-softmmu,ppc-softmmu,ppc64-softmmu,riscv32-softmmu,riscv64-softmmu,s390x-softmmu,sh4-softmmu,sh4eb-softmmu,sparc-softmmu,sparc64-softmmu,x86_64-softmmu,xtensa-softmmu,xtensaeb-softmmu"
 
-          case "${BUILD_SCOPE}" in
-            release)
-              include="[
-                {\"os\":\"linux\",\"arch\":\"amd64\",\"runner\":\"ubuntu-24.04\",\"family\":\"user\",\"target_list\":\"\"},
-                {\"os\":\"linux\",\"arch\":\"amd64\",\"runner\":\"ubuntu-24.04\",\"family\":\"img\",\"target_list\":\"\"},
-                {\"os\":\"linux\",\"arch\":\"amd64\",\"runner\":\"ubuntu-24.04\",\"family\":\"system\",\"target_list\":\"${USER_COMPATIBLE_SOFTMMU_TARGETS}\"},
-                {\"os\":\"linux\",\"arch\":\"arm64\",\"runner\":\"ubuntu-24.04-arm\",\"family\":\"user\",\"target_list\":\"\"},
-                {\"os\":\"linux\",\"arch\":\"arm64\",\"runner\":\"ubuntu-24.04-arm\",\"family\":\"img\",\"target_list\":\"\"},
-                {\"os\":\"linux\",\"arch\":\"arm64\",\"runner\":\"ubuntu-24.04-arm\",\"family\":\"system\",\"target_list\":\"${USER_COMPATIBLE_SOFTMMU_TARGETS}\"}
-              ]"
-              ;;
-            validation)
-              include='[
-                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"user","target_list":"aarch64-linux-user"},
-                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"img","target_list":""},
-                {"os":"linux","arch":"amd64","runner":"ubuntu-24.04","family":"system","target_list":"x86_64-softmmu"}
-              ]'
-              ;;
-            *)
-              echo "unsupported build_scope: ${BUILD_SCOPE}" >&2
-              exit 1
-              ;;
-          esac
+          include="$(
+            jq -c -n --arg system_targets "${USER_COMPATIBLE_SOFTMMU_TARGETS}" '[
+              {os: "linux", arch: "amd64", runner: "ubuntu-24.04", family: "user", target_list: ""},
+              {os: "linux", arch: "amd64", runner: "ubuntu-24.04", family: "img", target_list: ""},
+              {os: "linux", arch: "amd64", runner: "ubuntu-24.04", family: "system", target_list: $system_targets},
+              {os: "linux", arch: "arm64", runner: "ubuntu-24.04-arm", family: "user", target_list: ""},
+              {os: "linux", arch: "arm64", runner: "ubuntu-24.04-arm", family: "img", target_list: ""},
+              {os: "linux", arch: "arm64", runner: "ubuntu-24.04-arm", family: "system", target_list: $system_targets}
+            ]'
+          )"
 
-          echo "include=$(jq -c . <<< "${include}")" >> "${GITHUB_OUTPUT}"
+          echo "include=${include}" >> "${GITHUB_OUTPUT}"
 
   build:
     needs: matrix
