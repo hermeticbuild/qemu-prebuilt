@@ -101,9 +101,11 @@ not compiled twice for validation. The smoke test runs `qemu-img`, starts
 `qemu-system-x86_64` with `-machine none`, and runs a static aarch64 program
 through `qemu-aarch64`.
 
-2026-04-30 GitHub Actions note: release and backfill builds generate artifact
-attestations. Validation keeps attestations disabled so pull-request checks stay
-focused on build, packaging, checksums, and smoke tests.
+2026-04-30 GitHub Actions note: release and backfill builds request artifact
+attestations and upload generated attestation bundles when GitHub enables the
+feature for the repository. Validation keeps attestations disabled so
+pull-request checks stay focused on build, packaging, checksums, and smoke
+tests.
 
 2026-04-30 macOS implementation note: macOS builds were prototyped on native
 GitHub-hosted macOS runners for `darwin-amd64` and `darwin-arm64`. QEMU's
