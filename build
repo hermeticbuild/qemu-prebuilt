@@ -25,6 +25,7 @@ ARTIFACT_NAME="${ARTIFACT_NAME:-qemu}"
 ARTIFACT_BASE_VERSION="${QEMU_VERSION:-${ARTIFACT_BASE_VERSION:-11.0.0}}"
 ARTIFACT_BASE_VERSION="${ARTIFACT_BASE_VERSION#v}"
 ARTIFACT_SERIAL="${ARTIFACT_SERIAL:-}"
+TARGET_LIST="${TARGET_LIST:-}"
 
 ARTIFACT_VERSION="${ARTIFACT_BASE_VERSION}${ARTIFACT_SERIAL:+.${ARTIFACT_SERIAL}}"
 ARTIFACT_BASENAME="${ARTIFACT_NAME}-${HOST_OS}-${ARTIFACT_ARCH}-${ARTIFACT_VERSION}"
@@ -32,6 +33,75 @@ ARTIFACT_BASENAME="${ARTIFACT_NAME}-${HOST_OS}-${ARTIFACT_ARCH}-${ARTIFACT_VERSI
 QEMU_REPO="${QEMU_REPO:-https://gitlab.com/qemu-project/qemu.git}"
 QEMU_REF="${QEMU_REF:-${QEMU_REV:-v${ARTIFACT_BASE_VERSION}}}"
 QEMU_BASENAME="${ARTIFACT_NAME}-${ARTIFACT_VERSION}"
+LIBSLIRP_REPO="${LIBSLIRP_REPO:-https://gitlab.freedesktop.org/slirp/libslirp.git}"
+LIBSLIRP_REF="${LIBSLIRP_REF:-v4.9.1}"
+LIBSLIRP_PREFIX="${LIBSLIRP_PREFIX:-/work/deps/libslirp}"
+
+if [[ -z "${TARGET_LIST}" ]]; then
+    linux_user_targets=(
+        aarch64-linux-user
+        aarch64_be-linux-user
+        alpha-linux-user
+        arm-linux-user
+        armeb-linux-user
+        hexagon-linux-user
+        hppa-linux-user
+        i386-linux-user
+        loongarch64-linux-user
+        m68k-linux-user
+        microblaze-linux-user
+        microblazeel-linux-user
+        mips-linux-user
+        mips64-linux-user
+        mips64el-linux-user
+        mipsel-linux-user
+        mipsn32-linux-user
+        mipsn32el-linux-user
+        or1k-linux-user
+        ppc-linux-user
+        ppc64-linux-user
+        ppc64le-linux-user
+        riscv32-linux-user
+        riscv64-linux-user
+        s390x-linux-user
+        sh4-linux-user
+        sh4eb-linux-user
+        sparc-linux-user
+        sparc32plus-linux-user
+        sparc64-linux-user
+        x86_64-linux-user
+        xtensa-linux-user
+        xtensaeb-linux-user
+    )
+    softmmu_targets=(
+        aarch64-softmmu
+        alpha-softmmu
+        arm-softmmu
+        hppa-softmmu
+        i386-softmmu
+        loongarch64-softmmu
+        m68k-softmmu
+        microblaze-softmmu
+        mips-softmmu
+        mips64-softmmu
+        mips64el-softmmu
+        mipsel-softmmu
+        or1k-softmmu
+        ppc-softmmu
+        ppc64-softmmu
+        riscv32-softmmu
+        riscv64-softmmu
+        s390x-softmmu
+        sh4-softmmu
+        sh4eb-softmmu
+        sparc-softmmu
+        sparc64-softmmu
+        x86_64-softmmu
+        xtensa-softmmu
+        xtensaeb-softmmu
+    )
+    TARGET_LIST="$(IFS=,; echo "${linux_user_targets[*]},${softmmu_targets[*]}")"
+fi
 
 WORKDIR() {
     echo "workdir: $(pwd)"
@@ -44,6 +114,33 @@ RUN() {
     "$@"
 }
 
+build_libslirp_static() {
+    WORKDIR /work/src
+    RUN git init libslirp
+    WORKDIR /work/src/libslirp
+    RUN git remote add origin "${LIBSLIRP_REPO}"
+    RUN git fetch --depth=1 origin "${LIBSLIRP_REF}"
+    RUN git checkout --detach FETCH_HEAD
+
+    WORKDIR /work/out/libslirp
+    RUN meson setup \
+        /work/out/libslirp \
+        /work/src/libslirp \
+        "--prefix=${LIBSLIRP_PREFIX}" \
+        --libdir=lib \
+        --default-library=static \
+        --buildtype=release
+    RUN meson compile -C /work/out/libslirp
+    RUN meson install -C /work/out/libslirp
+
+    if [[ ! -f "${LIBSLIRP_PREFIX}/lib/libslirp.a" ]]; then
+        echo "expected static libslirp archive at ${LIBSLIRP_PREFIX}/lib/libslirp.a" >&2
+        exit 1
+    fi
+
+    export PKG_CONFIG_PATH="${LIBSLIRP_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+}
+
 WORKDIR /work/src
 RUN git init "${QEMU_BASENAME}"
 WORKDIR "/work/src/${QEMU_BASENAME}"
@@ -51,14 +148,41 @@ RUN git remote add origin "${QEMU_REPO}"
 RUN git fetch --depth=1 origin "${QEMU_REF}"
 RUN git checkout --detach FETCH_HEAD
 
-WORKDIR "/work/out/${QEMU_BASENAME}"
-RUN "/work/src/${QEMU_BASENAME}/configure" \
-    --prefix="/work/dst/${ARTIFACT_BASENAME}" \
-    --disable-debug-info \
-    --disable-system \
-    --disable-werror \
-    --enable-linux-user \
+configure_args=(
+    --prefix="/work/dst/${ARTIFACT_BASENAME}"
+    --disable-debug-info
+    --disable-werror
+    --disable-guest-agent
+    --disable-docs
+    --disable-gtk
+    --disable-sdl
+    --disable-vnc
+    --disable-opengl
+    --disable-curses
+    --disable-spice
+    --disable-pa
+    --disable-jack
+    --disable-oss
+    --disable-alsa
+    --disable-brlapi
+    --disable-dbus-display
+    --enable-linux-aio
+    --enable-linux-io-uring
+    --enable-system
+    --enable-linux-user
+    --enable-tools
+    --enable-slirp
     --static
+)
+
+build_libslirp_static
+
+if [[ -n "${TARGET_LIST}" ]]; then
+    configure_args+=("--target-list=${TARGET_LIST}")
+fi
+
+WORKDIR "/work/out/${QEMU_BASENAME}"
+RUN "/work/src/${QEMU_BASENAME}/configure" "${configure_args[@]}"
 
 RUN make "-j$(nproc)"
 RUN make "-j$(nproc)" install
@@ -68,4 +192,5 @@ RUN /work/tools/package-qemu-artifacts.sh \
     "/work/dst/${ARTIFACT_BASENAME}" \
     /work/artifact \
     "${HOST_OS}" \
-    "${ARTIFACT_ARCH}"
+    "${ARTIFACT_ARCH}" \
+    "${ARTIFACT_VERSION}"

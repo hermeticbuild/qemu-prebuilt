@@ -1,6 +1,7 @@
 # qemu-static
 
-This repository builds static Linux user-mode QEMU archives for GitHub releases.
+This repository builds Linux QEMU archives for GitHub releases. Linux artifacts
+are static where practical.
 It is based on <https://codeberg.org/ziglang/qemu-static> at commit
 `96593b61f32eebf2e44d88fbfffdc83f5b622225`.
 
@@ -11,25 +12,35 @@ Zig requires a very recent QEMU version, sometimes unreleased commit-revs, and
 sometimes with custom patches. For this reason, distro-based QEMU packages are
 unsuitable.
 
-The overall strategy is to use Alpine Linux to host a QEMU build and link
-statically to all possible libraries.
+The Linux strategy is to use Alpine Linux to host a QEMU build and link
+statically to all possible libraries, including a source-built static libslirp
+for `qemu-system` user networking. macOS and Windows builds are intentionally
+out of scope until they can offer a materially better distribution story than
+the platform package managers.
 
 It is a non-goal to build QEMU with all features enabled.
-It is a non-goal to build QEMU with system emulation enabled.
 It is a non-goal to build older versions of QEMU.
 
 ## Release workflow
 
-Pushing any tag starts `.github/workflows/release.yml`. The workflow builds:
+Pushing any tag starts `.github/workflows/release.yml`. The workflow builds
+Linux release artifacts with one QEMU build per host architecture:
 
-- `qemu-user-linux-amd64-<target>.tar.gz` and `.tar.zst` archives on `ubuntu-24.04`
-- `qemu-user-linux-arm64-<target>.tar.gz` and `.tar.zst` archives on `ubuntu-24.04-arm`
+- `qemu-user-linux-<host-arch>-<target>-<version>.tar.gz` and `.tar.zst`
+  archives
+- `qemu-img-linux-<host-arch>-<version>.tar.gz` and `.tar.zst` archives
+- `qemu-system-bin-linux-<host-arch>-<system-target>-<version>.tar.gz` and
+  `.tar.zst` archives
+- `qemu-system-data-linux-<host-arch>-<version>.tar.gz` and `.tar.zst`
+  archives
 
-Each per-target archive contains one prefixed executable named
-`qemu-user-<os>-<exec-arch>-<target-arch>`. Each build uploads every per-target
-archive and `.sha256` file as workflow artifacts, attests them with GitHub
-artifact attestations, and publishes the attestation bundle as a release asset.
-The final job creates or updates the GitHub release for the tag and uploads both
+User-mode archives contain one prefixed executable named
+`qemu-user-<os>-<exec-arch>-<target-arch>`. `qemu-img` and system binary
+archives preserve QEMU's installed `bin/` layout, and the system data archive
+contains installed `share/qemu` runtime data. Each build uploads every archive
+and `.sha256` file as workflow artifacts, attests them with GitHub artifact
+attestations, and publishes the attestation bundle as a release asset. The final
+job creates or updates the GitHub release for the tag and uploads both
 architecture artifact sets, checksums, and attestation bundles.
 
 The workflow can also be run manually with a `tag_name` input to retry release
@@ -39,7 +50,9 @@ Manual release runs can also build a specific upstream QEMU version without
 editing the repository. Set `qemu_version` to a stable upstream version such as
 `10.2.2`; the workflow builds `v10.2.2` from
 `https://gitlab.com/qemu-project/qemu.git` unless `qemu_ref` or `qemu_repo` are
-overridden.
+overridden. Set `artifact_serial` to append a release serial to artifact names,
+for example `qemu_version=11.0.0`, `artifact_serial=0`, and
+`tag_name=11.0.0.0`.
 
 ## Backfill workflow
 
@@ -75,6 +88,12 @@ Edit the following values in `build`:
 
 ```sh
 docker build --tag qemu .
+```
+
+To build one release-shaped artifact set locally:
+
+```sh
+tools/build-qemu.sh amd64 11.0.0
 ```
 
 ## Run container, save ID, copy artifact(s)

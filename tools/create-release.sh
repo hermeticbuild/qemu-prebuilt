@@ -10,7 +10,7 @@ if (( $# == 0 )); then
 fi
 
 TITLE="qemu-static ${TAG}"
-NOTES="Static Linux user-mode QEMU builds for amd64 and arm64."
+NOTES="Static Linux QEMU user-mode, system-mode, qemu-img, and system data builds."
 UPLOAD_BATCH_SIZE="${UPLOAD_BATCH_SIZE:-20}"
 UPLOAD_MAX_ATTEMPTS="${UPLOAD_MAX_ATTEMPTS:-6}"
 UPLOAD_RETRY_DELAY_SECONDS="${UPLOAD_RETRY_DELAY_SECONDS:-60}"

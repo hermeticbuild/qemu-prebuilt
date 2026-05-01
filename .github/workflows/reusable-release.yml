@@ -32,6 +32,16 @@ on:
         required: false
         default: ""
         type: string
+      publish:
+        description: "Publish built artifacts to a GitHub Release"
+        required: false
+        default: true
+        type: boolean
+      attest:
+        description: "Generate GitHub artifact attestations"
+        required: false
+        default: true
+        type: boolean
 
 concurrency:
   group: qemu-static-release-${{ inputs.release_tag || inputs.qemu_version }}
@@ -39,64 +49,22 @@ concurrency:
 
 jobs:
   build:
-    name: build-${{ matrix.arch }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-24.04
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-    runs-on: ${{ matrix.runner }}
+    uses: ./.github/workflows/reusable-build.yml
     permissions:
       contents: read
       attestations: write
-      artifact-metadata: write
       id-token: write
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Build qemu-static
-        id: build
-        env:
-          ALPINE_VERSION: ${{ inputs.alpine_version }}
-          ARTIFACT_SERIAL: ${{ inputs.artifact_serial }}
-          QEMU_REF: ${{ inputs.qemu_ref }}
-          QEMU_REPO: ${{ inputs.qemu_repo }}
-          QEMU_VERSION: ${{ inputs.qemu_version }}
-        run: tools/build-qemu.sh "${{ matrix.arch }}" "${{ inputs.qemu_version }}"
-
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: qemu-static-${{ inputs.qemu_version }}-${{ matrix.arch }}
-          path: |
-            out/qemu-user-linux-${{ matrix.arch }}-*
-          if-no-files-found: error
-
-      - name: Attest release artifact
-        id: attest
-        uses: actions/attest@281a49d4cbb0a72c9575a50d18f6deb515a11deb # v4
-        with:
-          subject-path: |
-            out/qemu-user-linux-${{ matrix.arch }}-*
-
-      - name: Normalize attestation bundle filename
-        run: |
-          mv \
-            "${{ steps.attest.outputs.bundle-path }}" \
-            "out/${{ steps.build.outputs.attestation_name }}"
-
-      - name: Upload attestation bundle artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: qemu-static-${{ inputs.qemu_version }}-${{ matrix.arch }}.attestation
-          path: out/${{ steps.build.outputs.attestation_name }}
-          if-no-files-found: error
+    with:
+      qemu_version: ${{ inputs.qemu_version }}
+      qemu_repo: ${{ inputs.qemu_repo }}
+      qemu_ref: ${{ inputs.qemu_ref }}
+      alpine_version: ${{ inputs.alpine_version }}
+      artifact_serial: ${{ inputs.artifact_serial }}
+      attest: ${{ inputs.attest }}
 
   publish:
     needs: build
+    if: ${{ inputs.publish }}
     runs-on: ubuntu-24.04
     concurrency:
       group: qemu-static-release-publish
@@ -109,7 +77,7 @@ jobs:
       - name: Download workflow artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          pattern: qemu-static-${{ inputs.qemu_version }}-*
+          pattern: qemu-*-${{ inputs.qemu_version }}-*
           path: out
           merge-multiple: true
 

@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ARCH="${1:?usage: tools/build-qemu.sh <amd64|arm64> [qemu-version]}"
+usage() {
+    echo "usage: tools/build-qemu.sh <amd64|arm64> [qemu-version] [target-list]" >&2
+}
+
+ARCH="${1:-}"
+if [[ -z "${ARCH}" ]]; then
+    usage
+    exit 1
+fi
 QEMU_VERSION="${2:-${QEMU_VERSION:-}}"
+TARGET_LIST="${3:-${TARGET_LIST:-}}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT_DIR="${OUT_DIR:-${ROOT_DIR}/out}"
 IMAGE="qemu-static-${ARCH}:build"
@@ -21,6 +30,13 @@ case "${ARCH}" in
         ;;
 esac
 
+ARTIFACT_PREFIXES=(
+    "qemu-user-linux-${ARCH}-"
+    "qemu-img-linux-${ARCH}-"
+    "qemu-system-bin-linux-${ARCH}-"
+    "qemu-system-data-linux-${ARCH}-"
+)
+
 cleanup() {
     docker container rm "${CONTAINER}" >/dev/null 2>&1 || true
 }
@@ -28,7 +44,9 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "${OUT_DIR}"
-find "${OUT_DIR}" -maxdepth 1 -type f -name "qemu-user-linux-${ARCH}-*" -delete
+for artifact_prefix in "${ARTIFACT_PREFIXES[@]}"; do
+    find "${OUT_DIR}" -maxdepth 1 -type f -name "${artifact_prefix}*" -delete
+done
 
 docker build \
     --platform "${PLATFORM}" \
@@ -36,6 +54,9 @@ docker build \
     --build-arg "QEMU_REPO=${QEMU_REPO:-https://gitlab.com/qemu-project/qemu.git}" \
     --build-arg "QEMU_REF=${QEMU_REF:-${QEMU_VERSION:+v${QEMU_VERSION#v}}}" \
     --build-arg "QEMU_VERSION=${QEMU_VERSION#v}" \
+    --build-arg "TARGET_LIST=${TARGET_LIST}" \
+    --build-arg "LIBSLIRP_REPO=${LIBSLIRP_REPO:-https://gitlab.freedesktop.org/slirp/libslirp.git}" \
+    --build-arg "LIBSLIRP_REF=${LIBSLIRP_REF:-v4.9.1}" \
     --build-arg "ARTIFACT_SERIAL=${ARTIFACT_SERIAL:-}" \
     --tag "${IMAGE}" \
     "${ROOT_DIR}"
@@ -43,22 +64,27 @@ docker build \
 docker create --name "${CONTAINER}" "${IMAGE}" true >/dev/null
 docker cp "${CONTAINER}:/work/artifact/." "${OUT_DIR}/"
 
-tar_gz_count="$(find "${OUT_DIR}" -maxdepth 1 -type f -name "qemu-user-linux-${ARCH}-*.tar.gz" | wc -l | tr -d ' ')"
-tar_zst_count="$(find "${OUT_DIR}" -maxdepth 1 -type f -name "qemu-user-linux-${ARCH}-*.tar.zst" | wc -l | tr -d ' ')"
-if [[ "${tar_gz_count}" == "0" ]] || [[ "${tar_gz_count}" != "${tar_zst_count}" ]]; then
-    echo "expected matching non-empty qemu-user-linux-${ARCH}-<target>.tar.gz and .tar.zst archives; found ${tar_gz_count} gzip and ${tar_zst_count} zstd" >&2
-    find "${OUT_DIR}" -maxdepth 1 -type f -print >&2
-    exit 1
-fi
+artifacts=()
+for artifact_prefix in "${ARTIFACT_PREFIXES[@]}"; do
+    tar_gz_count="$(find "${OUT_DIR}" -maxdepth 1 -type f -name "${artifact_prefix}*.tar.gz" | wc -l | tr -d ' ')"
+    tar_zst_count="$(find "${OUT_DIR}" -maxdepth 1 -type f -name "${artifact_prefix}*.tar.zst" | wc -l | tr -d ' ')"
+    if [[ "${tar_gz_count}" == "0" ]] || [[ "${tar_gz_count}" != "${tar_zst_count}" ]]; then
+        echo "expected matching non-empty ${artifact_prefix}*.tar.gz and .tar.zst archives; found ${tar_gz_count} gzip and ${tar_zst_count} zstd" >&2
+        find "${OUT_DIR}" -maxdepth 1 -type f -print >&2
+        exit 1
+    fi
 
-unexpected_count="$(find "${OUT_DIR}" -maxdepth 1 -type f -name "qemu-user-linux-${ARCH}-*" ! -name "*.tar.gz" ! -name "*.tar.zst" ! -name "*.sha256" | wc -l | tr -d ' ')"
-if [[ "${unexpected_count}" != "0" ]]; then
-    echo "unexpected non-tar qemu-user-linux-${ARCH} artifacts found" >&2
-    find "${OUT_DIR}" -maxdepth 1 -type f -print >&2
-    exit 1
-fi
+    unexpected_count="$(find "${OUT_DIR}" -maxdepth 1 -type f -name "${artifact_prefix}*" ! -name "*.tar.gz" ! -name "*.tar.zst" ! -name "*.sha256" | wc -l | tr -d ' ')"
+    if [[ "${unexpected_count}" != "0" ]]; then
+        echo "unexpected non-tar ${artifact_prefix} artifacts found" >&2
+        find "${OUT_DIR}" -maxdepth 1 -type f -print >&2
+        exit 1
+    fi
 
-mapfile -t artifacts < <(find "${OUT_DIR}" -maxdepth 1 -type f \( -name "qemu-user-linux-${ARCH}-*.tar.gz" -o -name "qemu-user-linux-${ARCH}-*.tar.zst" \) | sort)
+    while IFS= read -r artifact; do
+        artifacts+=("${artifact}")
+    done < <(find "${OUT_DIR}" -maxdepth 1 -type f \( -name "${artifact_prefix}*.tar.gz" -o -name "${artifact_prefix}*.tar.zst" \) | sort)
+done
 
 for artifact in "${artifacts[@]}"; do
     artifact_name="$(basename "${artifact}")"
@@ -77,10 +103,9 @@ for artifact in "${artifacts[@]}"; do
             ;;
     esac
 
-    actual_members="$(tar -tf "${artifact}")"
-    if [[ "${actual_members}" != "${expected_member}" ]]; then
-        echo "expected ${artifact_name} to contain exactly ${expected_member}, got:" >&2
-        printf '%s\n' "${actual_members}" >&2
+    actual_member_count="$(tar -tf "${artifact}" | wc -l | tr -d ' ')"
+    if [[ "${actual_member_count}" == "0" ]]; then
+        echo "expected ${artifact_name} to contain at least one member" >&2
         exit 1
     fi
 
@@ -95,5 +120,6 @@ for artifact in "${artifacts[@]}"; do
 done
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-    echo "attestation_name=qemu-user-linux-${ARCH}.attestation.jsonl" >> "${GITHUB_OUTPUT}"
+    artifact_version="${QEMU_VERSION#v}${ARTIFACT_SERIAL:+.${ARTIFACT_SERIAL}}"
+    echo "attestation_name=qemu-linux-${ARCH}-${artifact_version}.attestation.jsonl" >> "${GITHUB_OUTPUT}"
 fi
