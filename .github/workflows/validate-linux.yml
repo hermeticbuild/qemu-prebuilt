@@ -7,7 +7,6 @@ on:
       - "Dockerfile"
       - "build"
       - "tools/**"
-      - "docs/system-prebuilts-plan.md"
       - "README.md"
   workflow_dispatch:
     inputs:
