@@ -41,9 +41,7 @@ contains installed `share/qemu` runtime data. Each build uploads every archive
 and `.sha256` file as workflow artifacts, attests them with GitHub artifact
 attestations, and publishes the attestation bundle as a release asset. The final
 job creates or updates the GitHub release for the tag and uploads both
-architecture artifact sets and checksums. GitHub artifact attestations are
-optional because private repositories require organization support for that
-feature; manual release runs can enable them with `attest`.
+architecture artifact sets, checksums, and attestation bundles.
 
 `.github/workflows/validate-linux.yml` is the Linux release-equivalent
 validation workflow. It builds a narrow Linux amd64 matrix for QEMU 11.0.0 by default:

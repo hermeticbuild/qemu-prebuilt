@@ -25,12 +25,6 @@ on:
         required: false
         default: "https://gitlab.com/qemu-project/qemu.git"
         type: string
-      attest:
-        description: "Generate GitHub artifact attestations"
-        required: false
-        default: false
-        type: boolean
-
 jobs:
   release:
     uses: ./.github/workflows/reusable-release.yml
@@ -45,4 +39,4 @@ jobs:
       qemu_repo: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_repo || 'https://gitlab.com/qemu-project/qemu.git' }}
       build_scope: release
       publish: true
-      attest: ${{ github.event_name == 'workflow_dispatch' && inputs.attest || false }}
+      attest: true

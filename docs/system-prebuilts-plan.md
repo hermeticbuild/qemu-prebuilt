@@ -101,10 +101,9 @@ not compiled twice for validation. The smoke test runs `qemu-img`, starts
 `qemu-system-x86_64` with `-machine none`, and runs a static aarch64 program
 through `qemu-aarch64`.
 
-2026-04-30 GitHub Actions note: artifact attestations are optional because the
-private `hermeticbuild` organization did not have the attestation feature
-available during validation. Keep validation focused on build, packaging,
-checksums, and smoke tests unless repository billing/visibility changes.
+2026-04-30 GitHub Actions note: release and backfill builds generate artifact
+attestations. Validation keeps attestations disabled so pull-request checks stay
+focused on build, packaging, checksums, and smoke tests.
 
 2026-04-30 macOS implementation note: macOS builds were prototyped on native
 GitHub-hosted macOS runners for `darwin-amd64` and `darwin-arm64`. QEMU's
@@ -438,7 +437,7 @@ Open questions:
   `qemu-system-data`.
 - [ ] Keep non-Linux release jobs out of the matrix until their artifacts are
   worth publishing.
-- [ ] Upload and attest all artifact families.
+- [x] Upload and attest all artifact families for release publishing.
 - [ ] Publish all artifacts and checksums to the GitHub release.
 - [ ] Add manual inputs to select artifact families for test runs.
 - [ ] Add max-parallel controls for larger matrices.

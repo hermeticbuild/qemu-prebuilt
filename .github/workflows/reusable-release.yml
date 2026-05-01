@@ -45,7 +45,7 @@ on:
       attest:
         description: "Generate GitHub artifact attestations"
         required: false
-        default: false
+        default: true
         type: boolean
 
 concurrency:

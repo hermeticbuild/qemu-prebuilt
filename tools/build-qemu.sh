@@ -134,5 +134,6 @@ for artifact in "${artifacts[@]}"; do
 done
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-    echo "attestation_name=qemu-${ARTIFACT_FAMILY}-linux-${ARCH}.attestation.jsonl" >> "${GITHUB_OUTPUT}"
+    artifact_version="${QEMU_VERSION#v}${ARTIFACT_SERIAL:+.${ARTIFACT_SERIAL}}"
+    echo "attestation_name=qemu-${ARTIFACT_FAMILY}-linux-${ARCH}-${artifact_version}.attestation.jsonl" >> "${GITHUB_OUTPUT}"
 fi
