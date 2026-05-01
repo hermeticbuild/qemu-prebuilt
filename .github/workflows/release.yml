@@ -15,6 +15,11 @@ on:
         required: false
         default: ""
         type: string
+      artifact_serial:
+        description: "Optional serial suffix appended to artifact version"
+        required: false
+        default: ""
+        type: string
       qemu_ref:
         description: "QEMU git ref to build; defaults to v<qemu_version>"
         required: false
@@ -37,6 +42,7 @@ jobs:
       release_tag: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
       qemu_ref: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_ref || '' }}
       qemu_repo: ${{ github.event_name == 'workflow_dispatch' && inputs.qemu_repo || 'https://gitlab.com/qemu-project/qemu.git' }}
+      artifact_serial: ${{ github.event_name == 'workflow_dispatch' && inputs.artifact_serial || '' }}
       build_scope: release
       publish: true
       attest: true

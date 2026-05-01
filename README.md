@@ -59,7 +59,9 @@ Manual release runs can also build a specific upstream QEMU version without
 editing the repository. Set `qemu_version` to a stable upstream version such as
 `10.2.2`; the workflow builds `v10.2.2` from
 `https://gitlab.com/qemu-project/qemu.git` unless `qemu_ref` or `qemu_repo` are
-overridden.
+overridden. Set `artifact_serial` to append a release serial to artifact names,
+for example `qemu_version=11.0.0`, `artifact_serial=0`, and
+`tag_name=11.0.0.0`.
 
 ## Backfill workflow
 
