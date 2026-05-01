@@ -114,12 +114,33 @@ RUN() {
     "$@"
 }
 
+RUN_RETRY() {
+    local attempts="${1:?attempt count}"
+    shift
+
+    local attempt delay
+    delay=5
+    for ((attempt = 1; attempt <= attempts; attempt++)); do
+        echo "run (attempt ${attempt}/${attempts}): $*"
+        if "$@"; then
+            return 0
+        fi
+
+        if (( attempt == attempts )); then
+            return 1
+        fi
+
+        sleep "${delay}"
+        delay="$((delay * 2))"
+    done
+}
+
 build_libslirp_static() {
     WORKDIR /work/src
     RUN git init libslirp
     WORKDIR /work/src/libslirp
     RUN git remote add origin "${LIBSLIRP_REPO}"
-    RUN git fetch --depth=1 origin "${LIBSLIRP_REF}"
+    RUN_RETRY "${GIT_FETCH_RETRIES:-5}" git fetch --depth=1 origin "${LIBSLIRP_REF}"
     RUN git checkout --detach FETCH_HEAD
 
     WORKDIR /work/out/libslirp
@@ -145,7 +166,7 @@ WORKDIR /work/src
 RUN git init "${QEMU_BASENAME}"
 WORKDIR "/work/src/${QEMU_BASENAME}"
 RUN git remote add origin "${QEMU_REPO}"
-RUN git fetch --depth=1 origin "${QEMU_REF}"
+RUN_RETRY "${GIT_FETCH_RETRIES:-5}" git fetch --depth=1 origin "${QEMU_REF}"
 RUN git checkout --detach FETCH_HEAD
 
 configure_args=(
