@@ -33,7 +33,7 @@ ARTIFACT_BASENAME="${ARTIFACT_NAME}-${HOST_OS}-${ARTIFACT_ARCH}-${ARTIFACT_VERSI
 QEMU_REPO="${QEMU_REPO:-https://gitlab.com/qemu-project/qemu.git}"
 QEMU_REF="${QEMU_REF:-${QEMU_REV:-v${ARTIFACT_BASE_VERSION}}}"
 QEMU_BASENAME="${ARTIFACT_NAME}-${ARTIFACT_VERSION}"
-LIBSLIRP_REPO="${LIBSLIRP_REPO:-https://gitlab.freedesktop.org/slirp/libslirp.git}"
+LIBSLIRP_REPO="${LIBSLIRP_REPO:-https://gitlab.com/qemu-project/libslirp.git}"
 LIBSLIRP_REF="${LIBSLIRP_REF:-v4.9.1}"
 LIBSLIRP_PREFIX="${LIBSLIRP_PREFIX:-/work/deps/libslirp}"
 
@@ -114,12 +114,33 @@ RUN() {
     "$@"
 }
 
+RUN_RETRY() {
+    local attempts="${1:?attempt count}"
+    shift
+
+    local attempt delay
+    delay=5
+    for ((attempt = 1; attempt <= attempts; attempt++)); do
+        echo "run (attempt ${attempt}/${attempts}): $*"
+        if "$@"; then
+            return 0
+        fi
+
+        if (( attempt == attempts )); then
+            return 1
+        fi
+
+        sleep "${delay}"
+        delay="$((delay * 2))"
+    done
+}
+
 build_libslirp_static() {
     WORKDIR /work/src
     RUN git init libslirp
     WORKDIR /work/src/libslirp
     RUN git remote add origin "${LIBSLIRP_REPO}"
-    RUN git fetch --depth=1 origin "${LIBSLIRP_REF}"
+    RUN_RETRY "${GIT_FETCH_RETRIES:-5}" git fetch --depth=1 origin "${LIBSLIRP_REF}"
     RUN git checkout --detach FETCH_HEAD
 
     WORKDIR /work/out/libslirp
@@ -145,7 +166,7 @@ WORKDIR /work/src
 RUN git init "${QEMU_BASENAME}"
 WORKDIR "/work/src/${QEMU_BASENAME}"
 RUN git remote add origin "${QEMU_REPO}"
-RUN git fetch --depth=1 origin "${QEMU_REF}"
+RUN_RETRY "${GIT_FETCH_RETRIES:-5}" git fetch --depth=1 origin "${QEMU_REF}"
 RUN git checkout --detach FETCH_HEAD
 
 configure_args=(
@@ -158,7 +179,7 @@ configure_args=(
     --disable-sdl
     --disable-vnc
     --disable-opengl
-    --disable-curses
+    --enable-curses
     --disable-spice
     --disable-pa
     --disable-jack

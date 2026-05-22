@@ -7,7 +7,7 @@ ARG QEMU_REPO=https://gitlab.com/qemu-project/qemu.git
 ARG QEMU_VERSION=
 ARG TARGET_LIST=
 ARG LIBSLIRP_REF=v4.9.1
-ARG LIBSLIRP_REPO=https://gitlab.freedesktop.org/slirp/libslirp.git
+ARG LIBSLIRP_REPO=https://gitlab.com/qemu-project/libslirp.git
 
 ENV ARTIFACT_SERIAL="${ARTIFACT_SERIAL}"
 ENV QEMU_REF="${QEMU_REF}"
@@ -33,6 +33,7 @@ RUN apk add\
  linux-headers\
  glib-dev glib-static\
  zlib-dev zlib-static\
+ ncurses-dev ncurses-static\
  pcre2-dev pcre2-static\
  pixman-dev pixman-static\
  libaio-dev\
@@ -43,7 +44,7 @@ RUN apk add\
  bison
 
 # required by build
-RUN apk add bash gzip git tar zstd
+RUN apk add bash file gzip git tar zstd
 
 WORKDIR /work
 COPY build build
