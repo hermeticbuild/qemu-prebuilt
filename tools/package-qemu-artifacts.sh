@@ -18,8 +18,36 @@ fi
 
 BIN_DIR="${INSTALL_DIR}/bin"
 TAR="${TAR:-tar}"
+STRIP="${STRIP:-strip}"
 
 mkdir -p "${OUT_DIR}"
+
+strip_binary() {
+    local binary="${1:?binary}"
+
+    if ! command -v "${STRIP}" >/dev/null 2>&1; then
+        echo "missing strip tool: ${STRIP}" >&2
+        exit 1
+    fi
+
+    "${STRIP}" "${binary}"
+}
+
+assert_static_elf() {
+    local binary="${1:?binary}"
+
+    if ! file "${binary}" | grep -Eq 'statically linked|static-pie linked'; then
+        echo "expected static ELF binary: ${binary}" >&2
+        file "${binary}" >&2
+        exit 1
+    fi
+
+    if readelf -l "${binary}" | grep -q 'Requesting program interpreter'; then
+        echo "unexpected dynamic interpreter in ${binary}" >&2
+        readelf -l "${binary}" >&2
+        exit 1
+    fi
+}
 
 make_archive() {
     local artifact_basename="${1:?artifact basename}"
@@ -62,9 +90,9 @@ package_user() {
 
         cp "${qemu_binary}" "${staging_dir}/${artifact_binary}"
         chmod 0755 "${staging_dir}/${artifact_binary}"
+        strip_binary "${staging_dir}/${artifact_binary}"
+        assert_static_elf "${staging_dir}/${artifact_binary}"
         make_archive "${artifact_basename}" "${staging_dir}"
-        cmp "${qemu_binary}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./${artifact_binary}")
-        cmp "${qemu_binary}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./${artifact_binary}")
         rm -rf "${staging_dir}"
         artifact_count="$((artifact_count + 1))"
     done
@@ -88,9 +116,9 @@ package_img() {
     mkdir -p "${staging_dir}/bin"
     cp "${qemu_img}" "${staging_dir}/bin/qemu-img"
     chmod 0755 "${staging_dir}/bin/qemu-img"
+    strip_binary "${staging_dir}/bin/qemu-img"
+    assert_static_elf "${staging_dir}/bin/qemu-img"
     make_archive "${artifact_basename}" "${staging_dir}"
-    cmp "${qemu_img}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./bin/qemu-img")
-    cmp "${qemu_img}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./bin/qemu-img")
     rm -rf "${staging_dir}"
 }
 
@@ -114,9 +142,9 @@ package_system() {
         mkdir -p "${staging_dir}/bin"
         cp "${qemu_binary}" "${staging_dir}/bin/${binary_name}"
         chmod 0755 "${staging_dir}/bin/${binary_name}"
+        strip_binary "${staging_dir}/bin/${binary_name}"
+        assert_static_elf "${staging_dir}/bin/${binary_name}"
         make_archive "${artifact_basename}" "${staging_dir}"
-        cmp "${qemu_binary}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.gz" "./bin/${binary_name}")
-        cmp "${qemu_binary}" <("${TAR}" -xOf "${OUT_DIR}/${artifact_basename}.tar.zst" "./bin/${binary_name}")
         rm -rf "${staging_dir}"
         artifact_count="$((artifact_count + 1))"
     done
