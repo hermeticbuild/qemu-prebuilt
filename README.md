@@ -14,9 +14,11 @@ unsuitable.
 
 The Linux strategy is to use Alpine Linux to host a QEMU build and link
 statically to all possible libraries, including a source-built static libslirp
-for `qemu-system` user networking. macOS and Windows builds are intentionally
-out of scope until they can offer a materially better distribution story than
-the platform package managers.
+for `qemu-system` user networking. Linux `qemu-system` binaries are configured
+with KVM accelerator support, and CI smoke tests verify that the native system
+binary advertises the `kvm` accelerator. macOS and Windows builds are
+intentionally out of scope until they can offer a materially better distribution
+story than the platform package managers.
 
 It is a non-goal to build QEMU with all features enabled.
 It is a non-goal to build older versions of QEMU.
