@@ -55,6 +55,16 @@ run_smoke() {
     "${binary}" --version >/dev/null
 }
 
+assert_kvm_accel() {
+    local binary="${1:?binary}"
+
+    if ! "${binary}" -accel help | grep -Eq '(^|[[:space:]])kvm($|[[:space:]])'; then
+        echo "expected ${binary} to advertise kvm accelerator" >&2
+        "${binary}" -accel help >&2
+        exit 1
+    fi
+}
+
 user_archive="${OUT_DIR}/qemu-user-linux-${ARCH}-${USER_TARGET}-${ARTIFACT_VERSION}.tar.gz"
 img_archive="${OUT_DIR}/qemu-img-linux-${ARCH}-${ARTIFACT_VERSION}.tar.gz"
 system_archive="${OUT_DIR}/qemu-system-bin-linux-${ARCH}-${SYSTEM_TARGET}-${ARTIFACT_VERSION}.tar.gz"
@@ -73,3 +83,4 @@ extract_archive "${system_archive}" "${WORK_DIR}/system"
 run_smoke "${WORK_DIR}/user/qemu-user-linux-${ARCH}-${USER_TARGET}"
 run_smoke "${WORK_DIR}/img/bin/qemu-img"
 run_smoke "${WORK_DIR}/system/bin/${SYSTEM_BINARY}"
+assert_kvm_accel "${WORK_DIR}/system/bin/${SYSTEM_BINARY}"

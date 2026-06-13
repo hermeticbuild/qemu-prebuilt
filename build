@@ -190,6 +190,7 @@ configure_args=(
     --enable-linux-aio
     --enable-linux-io-uring
     --enable-system
+    --enable-kvm
     --enable-linux-user
     --enable-tools
     --enable-slirp
